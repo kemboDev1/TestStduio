@@ -11,12 +11,12 @@ import api from "./api.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
-const sessionSecret = process.env.KEMBOISNEVERGIVESUP || "";
+const sessionSecret = process.env.SESSION_SECRET || "";
 const isProduction = process.env.NODE_ENV === "production";
 const PgSession = connectPgSimple(session);
 
 if (sessionSecret.length < 32) {
-  throw new Error("KEMBOISNEVERGIVESUP must contain at least 32 characters. Set it in .env.");
+  throw new Error("SESSION_SECRET must contain at least 32 characters. Set it in .env.");
 }
 
 app.disable("x-powered-by");
