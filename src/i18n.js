@@ -54,7 +54,32 @@ const phrases = {
   "Guruhlar, mulohaza testlari va mijozlar javoblari bir joyda — tinch va ishonchli muhitda.": ["Groups, reflection tests, and client responses in one calm, private workspace.", "Группы, тесты и ответы клиентов в одном конфиденциальном кабинете."],
   "Barchasi": ["All", "Все"], "DAVOM ETING": ["CONTINUE", "ПРОДОЛЖИТЬ"], "BIRGA ISHLASH": ["WORK TOGETHER", "РАБОТАТЬ ВМЕСТЕ"],
   "Kuting…": ["Please wait…", "Подождите…"], "Saqlanmoqda…": ["Saving…", "Сохранение…"], "Tayyorlanmoqda…": ["Preparing…", "Подготовка…"],
-  "Admin — boshqaruvchi": ["Admin — manager", "Администратор"], "FAOLIYAT": ["ACTIVITY", "АКТИВНОСТЬ"], "OXIRGI KIRISH": ["LAST SIGN IN", "ПОСЛЕДНИЙ ВХОД"], "FOYDALANUVCHI": ["USER", "ПОЛЬЗОВАТЕЛЬ"], "ROL": ["ROLE", "РОЛЬ"], "HOLAT": ["STATUS", "СТАТУС"], "AMAL": ["ACTION", "ДЕЙСТВИЕ"]
+  "Admin — boshqaruvchi": ["Admin — manager", "Администратор"], "FAOLIYAT": ["ACTIVITY", "АКТИВНОСТЬ"], "OXIRGI KIRISH": ["LAST SIGN IN", "ПОСЛЕДНИЙ ВХОД"], "FOYDALANUVCHI": ["USER", "ПОЛЬЗОВАТЕЛЬ"], "ROL": ["ROLE", "РОЛЬ"], "HOLAT": ["STATUS", "СТАТУС"], "AMAL": ["ACTION", "ДЕЙСТВИЕ"],
+  "Yaxshiroq": ["A little better", "К лучшему"], "Har bir kichik qadam": ["Every small step", "Каждый маленький шаг"], "Xotirjam muhitda, o‘z sur’atingizda": ["At your own pace, in a calm space", "В спокойной обстановке, в своём темпе"],
+  "Mijozlaringiz uchun guruhlar va mulohaza testlarini qulay boshqaring.": ["Easily manage groups and reflection tests for your clients.", "Удобно управляйте группами и тестами для клиентов."], "Sizga ulashilgan testlarni xotirjam muhitda topshiring.": ["Take the tests shared with you in a calm space.", "Проходите тесты в спокойной обстановке."],
+  "Testlarim": ["My tests", "Мои тесты"], "Mening guruhim": ["My groups", "Мои группы"], "Mijozlar": ["Clients", "Клиенты"], "Javoblarim": ["My responses", "Мои ответы"], "Javoblar": ["Responses", "Ответы"],
+  "Birgalikda ishlash maydoni": ["A place to work together", "Пространство для совместной работы"], "Siz a’zo bo‘lgan guruhlar": ["Groups you belong to", "Группы, в которых вы состоите"], "Guruhlarga qo‘shilganlar": ["Members in your groups", "Участники ваших групп"],
+  "Guruhlar uchun tayyorlangan": ["Prepared for your groups", "Подготовлены для ваших групп"], "Topshirgan testlaringiz": ["Tests you have completed", "Пройденные вами тесты"], "Yuborilgan test javoblari": ["Submitted test responses", "Отправленные ответы"],
+  "Hali testlar yo‘q": ["No tests yet", "Тестов пока нет"], "Birinchi mulohaza testini yarating.": ["Create your first reflection test.", "Создайте первый тест для самоанализа."], "Psixologingiz test ulashganda shu yerda ko‘rinadi.": ["Tests shared by your psychologist will appear here.", "Здесь появятся тесты от вашего психолога."],
+  "Hali guruh yaratilmagan": ["No groups yet", "Групп пока нет"], "Mijozlar va testlar uchun yangi guruh oching.": ["Create a group for your clients and tests.", "Создайте группу для клиентов и тестов."], "Guruhga taklif kodi orqali qo‘shiling.": ["Join a group with an invite code.", "Вступите в группу по коду приглашения."],
+  "Guruhlarni ko‘rish": ["View groups", "Посмотреть группы"], "Maxfiylik birinchi o‘rinda": ["Privacy comes first", "Конфиденциальность прежде всего"],
+  "HAMKORLIK MAYDONI": ["COLLABORATION SPACE", "ПРОСТРАНСТВО ДЛЯ РАБОТЫ"], "Xavfsiz ish guruhlari yarating.": ["Create private work groups.", "Создавайте закрытые рабочие группы."],
+  "Guruhlar va ularga tegishli testlar.": ["Your groups and their tests.", "Ваши группы и связанные тесты."], "Yangi guruh ochish": ["Create a group", "Создать группу"], "Nom va qisqa izoh kiriting. Taklif kodi avtomatik yaratiladi.": ["Enter a name and short description. An invite code will be generated.", "Укажите название и краткое описание. Код появится автоматически."],
+  "Guruh tavsifi qo‘shilmagan.": ["No group description yet.", "Описание группы пока не добавлено."], "Guruhni boshqarish": ["Manage group", "Управлять группой"], "Guruhni ochish": ["Open group", "Открыть группу"], "Faol": ["Active", "Активна"],
+  "Test muharriri": ["TEST EDITOR", "РЕДАКТОР ТЕСТА"], "Mulohaza testi yarating": ["Create a reflection test", "Создать тест для самоанализа"],
+  "Savollarni o‘zingiz tuzing yoki AI yordamida boshlang.": ["Write your questions or start with AI.", "Составьте вопросы сами или начните с ИИ."], "Test faqat tanlangan guruhda ko‘rinadi.": ["The test is visible only to the selected group.", "Тест виден только выбранной группе."],
+  "Guruh": ["Group", "Группа"], "Guruhni tanlang": ["Choose a group", "Выберите группу"], "Test nomi": ["Test title", "Название теста"], "Masalan, Haftalik holat": ["For example, Weekly check-in", "Например, Еженедельная оценка"],
+  "Mijozlarga testning maqsadini tushuntiring": ["Explain the purpose of this test", "Объясните цель теста"], "Savollar": ["Questions", "Вопросы"], "Savolni yozing…": ["Write a question…", "Введите вопрос…"],
+  "Mijoz javobi maxfiy ravishda mutaxassisga ko‘rinadi.": ["The answer is shared privately with the specialist.", "Ответ конфиденциально доступен специалисту."], "Radio belgisi bilan to‘g‘ri javobni belgilang.": ["Mark the correct answer with the radio button.", "Отметьте правильный ответ переключателем."],
+  "Test tanlangan guruh bilan cheklanadi": ["This test is limited to the selected group", "Тест доступен только выбранной группе"], "Testni guruhga joylash": ["Publish test to group", "Опубликовать тест в группе"],
+  "G‘oyani savollarga aylantiring.": ["Turn an idea into questions.", "Превратите идею в вопросы."], "Mavzuni yozing.": ["Enter a topic.", "Укажите тему."], "AI savol yaratish": ["Generate questions with AI", "Создать вопросы с помощью ИИ"],
+  "Javoblaringiz qabul qilindi": ["Your responses were received", "Ваши ответы получены"], "Javoblaringiz xavfsiz saqlandi": ["Your responses were saved", "Ваши ответы сохранены"], "Javoblarni yuborish": ["Submit responses", "Отправить ответы"],
+  "Test guruhga joylandi.": ["Test published to the group.", "Тест опубликован в группе."], "Psixologingizni test ulashganda shu yerda ko‘rinadi.": ["Your psychologist’s tests will appear here.", "Здесь появятся тесты от вашего психолога."],
+  "Ishtirokchilar hisobini va faolligini boshqaring.": ["Manage member accounts and access.", "Управляйте аккаунтами и доступом участников."], "Test va uning javoblarini butunlay o‘chirasizmi?": ["Permanently delete this test and its responses?", "Удалить этот тест и ответы навсегда?"],
+  "PSIXOLOG AMALIYOTI UCHUN": ["FOR PSYCHOLOGY PRACTICES", "ДЛЯ ПСИХОЛОГИЧЕСКОЙ ПРАКТИКИ"], "Tinglang": ["Listen", "Слушайте"], "Anglang": ["Understand", "Понимайте"], "Birga o‘sing": ["Grow together", "Растите вместе"],
+  "Yangi foydalanuvchimisiz? Hisob yarating": ["New here? Create an account", "Впервые здесь? Создайте аккаунт"], "Hisobingiz bormi? Kirish": ["Already have an account? Sign in", "Уже есть аккаунт? Войдите"], "Kamida 8 ta belgi": ["At least 8 characters", "Не менее 8 символов"],
+  "Javoblaringiz shaxsiy. Ularni faqat guruhingizdagi mutaxassis ko‘ra oladi.": ["Your responses are private and visible only to your group’s specialist.", "Ваши ответы доступны только специалисту вашей группы."], "Guruh kodi": ["Group code", "Код группы"],
+  "Profil rasmingiz va ko‘rinish mavzusini sozlang.": ["Choose your profile avatar and theme.", "Настройте аватар и цветовую тему."], "O‘zingizga qulay rang mavzusini tanlang.": ["Choose a comfortable color theme.", "Выберите удобную цветовую тему."]
 };
 const textOriginals = new WeakMap();
 const attrOriginals = new WeakMap();
@@ -79,7 +104,9 @@ function translateAttribute(element, name, language) {
 export function localizePage(root, language) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) if (walker.currentNode.nodeValue.trim()) translateNode(walker.currentNode, language);
-  root.querySelectorAll("input[placeholder],textarea[placeholder],button[title],button[aria-label],select[aria-label]").forEach(element => {
+  const selector = "input[placeholder],textarea[placeholder],button[title],button[aria-label],select[aria-label]";
+  const elements = [...(root.matches?.(selector) ? [root] : []), ...root.querySelectorAll(selector)];
+  elements.forEach(element => {
     for (const attribute of ["placeholder", "title", "aria-label"]) if (element.hasAttribute(attribute)) translateAttribute(element, attribute, language);
   });
 }
