@@ -41,8 +41,8 @@ app.use(session({
 
 app.use("/api", (req, res, next) => {
   const origin = req.get("origin");
-  const configuredOrigin = process.env.CLIENT_ORIGIN;
-  if (["POST", "PATCH", "PUT", "DELETE"].includes(req.method) && origin && configuredOrigin && origin !== configuredOrigin) {
+  const allowedOrigins = new Set((process.env.CLIENT_ORIGIN || "").split(",").map(value => value.trim()).filter(Boolean));
+  if (["POST", "PATCH", "PUT", "DELETE"].includes(req.method) && origin && allowedOrigins.size && !allowedOrigins.has(origin)) {
     return res.status(403).json({ error: "Cross-origin so'rov rad etildi." });
   }
   next();
