@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
 import {
   Activity, ArrowLeft, ArrowUpRight, BadgeCheck, Ban, BookOpen,
-  Check, ChevronRight, CircleHelp, Clock3, LogOut, MessageCircle,
+  Check, CircleHelp, LogOut, MessageCircle,
   Plus, Send, Shield, Sparkles, Trophy, Users, WandSparkles, Settings2,
   Sun, Moon, ImagePlus
 } from "lucide-react";
 import { api, jsonBody } from "./api.js";
 import { translate } from "./i18n.js";
+
+const LANG_KEY = "teststudio.language";
+const LANGUAGES = ["uz", "ru", "en"];
+const readLanguage = () => {
+  try {
+    const value = window.localStorage.getItem(LANG_KEY);
+    return LANGUAGES.includes(value) ? value : "en";
+  } catch {
+    return "en";
+  }
+};
 
 const blankQuestion = () => ({
   type: "multiple",
@@ -37,14 +48,20 @@ function App() {
   const [aiProvider, setAiProvider] = useState("");
   const [settingsDraft, setSettingsDraft] = useState(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
-  const t = (text, values) => translate(user?.language || "en", text, values);
+  const language = user?.language || readLanguage();
+  const t = (text, values) => translate(language, text, values);
 
   useEffect(() => {
     api("/auth/me")
       .then(payload => setUser(payload.user))
-      .catch(error => setNotice(error.message))
+      .catch(error => setNotice(t(error.message)))
       .finally(() => setReady(true));
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    try { window.localStorage.setItem(LANG_KEY, language); } catch { /* storage unavailable */ }
+  }, [language]);
 
   useEffect(() => {
     if (user) document.documentElement.dataset.theme = user.theme || "light";
@@ -53,17 +70,17 @@ function App() {
 
   useEffect(() => {
     if (!user) return;
-    api("/quizzes").then(payload => setQuizzes(payload.quizzes)).catch(error => setNotice(error.message));
+    api("/quizzes").then(payload => setQuizzes(payload.quizzes)).catch(error => setNotice(t(error.message)));
     api("/leaderboard").then(payload => setLeaderboard(payload.users)).catch(() => {});
   }, [user]);
 
   useEffect(() => {
     if (view !== "admin" || user?.role !== "admin") return;
-    api("/admin/users").then(payload => setAdminUsers(payload.users)).catch(error => setNotice(error.message));
+    api("/admin/users").then(payload => setAdminUsers(payload.users)).catch(error => setNotice(t(error.message)));
   }, [view, user]);
 
   function announce(message) {
-    setNotice(message);
+    setNotice(t(message));
     window.setTimeout(() => setNotice(""), 4200);
   }
 
@@ -198,8 +215,8 @@ function App() {
       });
       setAttempt(payload.attempt);
       announce(payload.attempt.is_practice
-        ? t("Natija: {score}/{total} · shaxsiy sinov", { score: payload.attempt.score, total: payload.attempt.total_scoreable })
-        : t("Natija: {score}/{total}", { score: payload.attempt.score, total: payload.attempt.total_scoreable }));
+        ? t("Result: {score}/{total} · private practice", { score: payload.attempt.score, total: payload.attempt.total_scoreable })
+        : t("Result: {score}/{total}", { score: payload.attempt.score, total: payload.attempt.total_scoreable }));
       if (!payload.attempt.is_practice) api("/leaderboard").then(data => setLeaderboard(data.users)).catch(() => {});
     } catch (error) {
       announce(error.message);
@@ -218,7 +235,7 @@ function App() {
       });
       setComments(current => [payload.comment, ...current]);
       setFeedback("");
-      announce("Feedback test egasiga yuborildi.");
+      announce(t("Feedback sent to the test owner."));
     } catch (error) {
       announce(error.message);
     } finally {
@@ -236,7 +253,7 @@ function App() {
     }
   }
 
-  if (!ready) return <div className="boot-screen"><span className="boot-mark">TS</span><p>TestStudio yuklanmoqda</p></div>;
+  if (!ready) return <div className="boot-screen"><span className="boot-mark">TS</span><p>{t("Loading TestStudio...")}</p></div>;
   if (!user) {
     return <AuthScreen mode={authMode} setMode={setAuthMode} form={authForm} setForm={setAuthForm} onSubmit={submitAuth} busy={busy} notice={notice} t={t} />;
   }
@@ -247,7 +264,7 @@ function App() {
         <a className="brand" href="#discover" onClick={event => { event.preventDefault(); setView("discover"); }}>
           <span className="brand-mark">TS</span><span>test<span className="brand-light">studio</span></span>
         </a>
-        <nav className="main-nav" aria-label="Asosiy navigatsiya">
+        <nav className="main-nav" aria-label={t("Main navigation")}>
           <NavButton active={view === "discover"} onClick={() => setView("discover")} icon={<BookOpen size={16} />}>{t("Discover")}</NavButton>
           <NavButton active={view === "builder"} onClick={() => setView("builder")} icon={<Plus size={16} />}>{t("Studio")}</NavButton>
           <NavButton active={view === "leaderboard"} onClick={() => setView("leaderboard")} icon={<Trophy size={16} />}>{t("Leaderboard")}</NavButton>
@@ -258,15 +275,15 @@ function App() {
           <Avatar className="account-avatar" value={user.avatar} />
           <span className="account-name">{user.username}</span>
           {user.role === "admin" && <span className="role-tag">ADMIN</span>}
-          <button className="icon-button" onClick={signOut} title="Chiqish" aria-label="Chiqish"><LogOut size={17} /></button>
+          <button className="icon-button" onClick={signOut} title={t("Sign out")} aria-label={t("Sign out")}><LogOut size={17} /></button>
         </div>
       </header>
 
-      {notice && <div className="notice-bar" role="status"><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Yopish">×</button></div>}
+      {notice && <div className="notice-bar" role="status"><span>{notice}</span><button onClick={() => setNotice("")} aria-label={t("Close")}>×</button></div>}
 
       <main className="page-shell">
         {view === "discover" && <DiscoverView quizzes={quizzes} user={user} onOpen={openQuiz} onCreate={() => setView("builder")} busy={busy} t={t} />}
-        {view === "builder" && <BuilderView draft={draft} setDraft={setDraft} updateQuestion={updateQuestion} onPublish={publishQuiz} busy={busy} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} onAi={generateWithAi} aiProvider={aiProvider} t={t} />}
+        {view === "builder" && <BuilderView onBack={() => setView("discover")} draft={draft} setDraft={setDraft} updateQuestion={updateQuestion} onPublish={publishQuiz} busy={busy} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} onAi={generateWithAi} aiProvider={aiProvider} t={t} />}
         {view === "play" && selectedQuiz && <PlayView quizData={selectedQuiz} user={user} answers={answers} setAnswers={setAnswers} attempt={attempt} onSubmit={submitAttempt} comments={comments} feedback={feedback} setFeedback={setFeedback} onFeedback={sendFeedback} onBack={() => setView("discover")} busy={busy} t={t} />}
         {view === "leaderboard" && <LeaderboardView users={leaderboard} t={t} />}
         {view === "settings" && settingsDraft && <SettingsView user={user} draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} busy={settingsBusy} t={t} />}
@@ -334,12 +351,12 @@ function QuizCard({ quiz, index, onClick, busy, t }) {
       <div className="quiz-card-top"><span className="question-count">{String(quiz.question_count).padStart(2, "0")} {t("QUESTIONS")}</span><span className="quiz-index">{String(index + 1).padStart(2, "0")}</span></div>
       <h3>{quiz.title}</h3><p>{quiz.description || t("A community quiz waiting to be explored.")}</p>
       <div className="quiz-card-footer"><span><span className="owner-dot">{quiz.owner_name?.[0]?.toUpperCase()}</span> {quiz.owner_name}</span><span><MessageCircle size={14} /> {quiz.comment_count}</span></div>
-      <button className="card-open" disabled={busy} onClick={onClick} aria-label={`Open ${quiz.title}`}><ArrowUpRight size={18} /></button>
+      <button className="card-open" disabled={busy} onClick={onClick} aria-label={t("Open {title}", { title: quiz.title })}><ArrowUpRight size={18} /></button>
     </article>
   );
 }
 
-function BuilderView({ draft, setDraft, updateQuestion, onPublish, busy, aiTopic, setAiTopic, aiCount, setAiCount, onAi, aiProvider, t }) {
+function BuilderView({ onBack, draft, setDraft, updateQuestion, onPublish, busy, aiTopic, setAiTopic, aiCount, setAiCount, onAi, aiProvider, t }) {
   function updateOption(questionIndex, optionIndex, value) {
     const question = draft.questions[questionIndex];
     updateQuestion(questionIndex, { options: question.options.map((option, index) => index === optionIndex ? value : option) });
@@ -349,7 +366,7 @@ function BuilderView({ draft, setDraft, updateQuestion, onPublish, busy, aiTopic
   }
   return (
     <section className="builder-page">
-      <button className="back-link" onClick={() => window.history.back()}><ArrowLeft size={15} /> {t("Back to tests")}</button>
+      <button className="back-link" onClick={onBack}><ArrowLeft size={15} /> {t("Back to tests")}</button>
       <div className="builder-heading"><div><span className="eyebrow">{t("TESTSTUDIO / EDITOR")}</span><h1>{t("Build your next")}<br /><em>{t("great question.")}</em></h1></div><span className="draft-label">{t("DRAFT · {count} QUESTIONS", { count: draft.questions.length })}</span></div>
       <div className="builder-layout">
         <form className="builder-form" onSubmit={onPublish}>
@@ -431,11 +448,14 @@ function SettingsView({ draft, setDraft, onSave, busy, t }) {
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(objectUrl);
       const avatar = canvas.toDataURL("image/jpeg", 0.72);
       if (avatar.length > 200_000) {
-        setPhotoError(t("Choose an image under 5 MB."));
+        setPhotoError(t("Image is too large. Choose a smaller one."));
         return;
       }
       setPhotoError("");

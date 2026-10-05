@@ -279,8 +279,8 @@ router.post("/quizzes/:id/comments", async (req, res, next) => {
 router.get("/leaderboard", async (_req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.username, u.avatar, COUNT(a.id)::int AS plays
-       FROM users u LEFT JOIN attempts a ON a.user_id = u.id AND a.is_practice = FALSE
+      `SELECT u.id, u.username, u.avatar, COUNT(DISTINCT a.quiz_id)::int AS plays
+       FROM users u JOIN attempts a ON a.user_id = u.id AND a.is_practice = FALSE
        WHERE u.is_banned = FALSE
        GROUP BY u.id ORDER BY plays DESC, u.username ASC LIMIT 100`
     );
