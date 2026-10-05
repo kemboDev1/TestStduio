@@ -357,3 +357,61 @@ h1, h2, h3 { font-family: "Space Grotesk", sans-serif; letter-spacing: 0; }
   .auth-stats { gap: 12px; }
   .auth-card-wrap { min-height: auto; padding: 22px 16px 35px; }
 }
+
+/* ===== Dark mode contrast fixes (paste at the very end of styles.css) ===== */
+:root { --on-acid: #1f2a14; }
+
+/* Text on the lime/acid background must stay dark in BOTH themes */
+.button-dark,
+.button-acid,
+.button-dark:hover:not(:disabled),
+.button-acid:hover:not(:disabled),
+.score-banner,
+.score-banner span,
+.score-banner strong,
+.card-open:hover { color: var(--on-acid); }
+
+.score-banner small { color: #3d4a26; }
+
+:root[data-theme="dark"] .button-dark:hover:not(:disabled),
+:root[data-theme="dark"] .button-acid:hover:not(:disabled) { background: #dcef86; }
+
+/* Quiz card chips: dark tinted backgrounds + light text in dark mode */
+:root[data-theme="dark"] .accent-mint   { --accent: #2f4535; }
+:root[data-theme="dark"] .accent-peach  { --accent: #4a3a31; }
+:root[data-theme="dark"] .accent-lemon  { --accent: #404728; }
+:root[data-theme="dark"] .accent-lilac  { --accent: #2f4249; }
+:root[data-theme="dark"] .question-count,
+:root[data-theme="dark"] .owner-dot { color: var(--ink); }
+
+/* Hover states that used a white background */
+:root[data-theme="dark"] .icon-button:hover { color: var(--ink); background: var(--hover); border-color: var(--line-dark); }
+:root[data-theme="dark"] .button-outline:hover:not(:disabled) { color: var(--ink); background: var(--hover); border-color: var(--line-dark); }
+:root[data-theme="dark"] .card-open { color: var(--ink); background: var(--surface-alt); }
+:root[data-theme="dark"] .card-open:hover { color: var(--on-acid); background: var(--acid); border-color: var(--acid); }
+
+/* Small grey / coloured texts that were too dim on dark surfaces */
+:root[data-theme="dark"] .privacy-note,
+:root[data-theme="dark"] .quiz-card > p,
+:root[data-theme="dark"] .leaderboard-privacy { color: var(--muted); }
+:root[data-theme="dark"] .form-error { color: #ff9f88; }
+:root[data-theme="dark"] .remove-question { color: #f0a58f; }
+:root[data-theme="dark"] .question-number { color: #b5c96d; }
+:root[data-theme="dark"] .role-tag { color: #2d3d18; }
+:root[data-theme="dark"] .notice-bar { border: 1px solid var(--line); border-left: 3px solid var(--acid); }
+:root[data-theme="dark"] .play-option { color: var(--text-soft); }
+:root[data-theme="dark"] .play-option.is-correct { color: var(--ink); }
+:root[data-theme="dark"] .play-option input,
+:root[data-theme="dark"] .option-editor input[type="radio"] { accent-color: var(--acid); }
+:root[data-theme="dark"] .segmented-control button.selected { color: var(--ink); background: var(--hover); }
+:root[data-theme="dark"] .admin-stats span,
+:root[data-theme="dark"] .table-head { color: var(--muted); }
+
+/* ===== Avatar photo fix: photo fills the circle and never overflows ===== */
+.account-avatar,
+.comment-avatar,
+.settings-avatar { overflow: hidden; }
+.account-avatar img,
+.comment-avatar img,
+.settings-avatar img,
+.avatar-image { width: 100%; height: 100%; max-width: 100%; display: block; object-fit: cover; border-radius: 50%; }

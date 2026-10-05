@@ -427,7 +427,7 @@ function AdminView({ users, onModerate, t }) {
 }
 
 function Avatar({ value, className }) {
-  return <span className={className}>{value?.startsWith("data:image/") ? <img src={value} alt="" /> : value || "?"}</span>;
+  return <span className={className}>{value?.startsWith("data:image/") ? <img className="avatar-image" src={value} alt="" /> : value || "?"}</span>;
 }
 
 function SettingsView({ draft, setDraft, onSave, busy, t }) {
