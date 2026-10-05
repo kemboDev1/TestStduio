@@ -171,7 +171,7 @@ h1, h2, h3 { font-family: "Space Grotesk", sans-serif; letter-spacing: 0; }
 .comment p { margin: 5px 0 0; color: var(--text-soft); font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
 
 .leaderboard-table { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
-.table-head, .leader-row { display: grid; grid-template-columns: 70px minmax(190px, 1fr) 100px 100px 100px; align-items: center; gap: 12px; padding: 13px 18px; }
+.table-head, .leader-row { display: grid; grid-template-columns: 70px minmax(190px, 1fr) 120px 120px; align-items: center; gap: 12px; padding: 13px 18px; }
 .table-head { color: var(--muted); background: var(--surface-alt); font-size: 9px; font-weight: 800; letter-spacing: .09em; }
 .leader-row { min-height: 56px; border-top: 1px solid var(--line); color: #5f685d; font-size: 12px; }
 .leader-row > strong { display: flex; align-items: center; gap: 9px; color: var(--ink); }
@@ -338,7 +338,7 @@ h1, h2, h3 { font-family: "Space Grotesk", sans-serif; letter-spacing: 0; }
   .question-body h2 { font-size: 16px; }
   .feedback-form { align-items: stretch; flex-direction: column; }
   .table-page .section-heading { align-items: flex-end; }
-  .table-head, .leader-row { grid-template-columns: 38px minmax(100px, 1fr) 42px 42px 48px; gap: 5px; padding: 11px 8px; font-size: 10px; }
+  .table-head, .leader-row { grid-template-columns: 38px minmax(100px, 1fr) 70px 80px; gap: 5px; padding: 11px 8px; font-size: 10px; }
   .table-head { font-size: 7px; }
   .leader-row > strong { gap: 5px; }
   .leader-row .account-avatar { width: 24px; height: 24px; flex-basis: 24px; font-size: 9px; }
