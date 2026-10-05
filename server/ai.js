@@ -99,10 +99,13 @@ export async function generateQuestions(topic, count) {
   });
 
   if (!response.ok) {
-    const errorPayload = await response.json().catch(() => ({}));
-    const providerMessage = typeof errorPayload.error?.message === "string"
-      ? errorPayload.error.message.replaceAll(apiKey, "[redacted]").slice(0, 400)
-      : "";
+    const errorText = await response.text();
+    let providerMessage = errorText;
+    try {
+      const errorPayload = JSON.parse(errorText);
+      providerMessage = errorPayload.error?.message || errorText;
+    } catch {}
+    providerMessage = String(providerMessage).replaceAll(apiKey, "[redacted]").slice(0, 400).trim();
     throw new Error(`AI xizmati xato qaytardi (${response.status})${providerMessage ? `: ${providerMessage}` : ""}.`);
   }
   const payload = await response.json();
