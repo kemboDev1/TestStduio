@@ -73,25 +73,33 @@ export async function generateQuestions(topic, count) {
     };
   }
 
-  const systemPrompt = "You create accurate, engaging quizzes in Uzbek from the user's topic or instructions. Return only JSON with this shape: {\"title\":string,\"description\":string,\"questions\":[{\"prompt\":string,\"type\":\"multiple\",\"options\":string[],\"correctOptionIndex\":number} or {\"prompt\":string,\"type\":\"text\",\"options\":[],\"correctOptionIndex\":null}]}. Write a relevant, concise title and description. Choose the most suitable type for each question: use multiple for objective questions with one verifiably correct answer; use text for explanation, reflection, or open-ended questions. Include both types when appropriate. Multiple-choice questions need 4 distinct options and a correctOptionIndex. Never invent facts, repeat ideas, or include an answer key for text questions.";
-  const userPrompt = `Foydalanuvchi so'rovi: ${topic}\nSavollar soni: aynan ${count}\nSavollarni shu so'rovga mos, aniq va o'zaro takrorlanmaydigan qilib tuz.`;
+  const baseUrl = (process.env.AI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai/").replace(/\/$/, "");
+  const request = {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({
+      model: process.env.AI_MODEL || "gemini-3.5-flash-lite",
+      temperature: 0.9,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: "You create accurate, engaging quizzes in Uzbek from the user's topic or instructions. Return only JSON with this shape: {\"title\":string,\"description\":string,\"questions\":[{\"prompt\":string,\"type\":\"multiple\",\"options\":string[],\"correctOptionIndex\":number} or {\"prompt\":string,\"type\":\"text\",\"options\":[],\"correctOptionIndex\":null}]}. Write a relevant, concise title and description. Choose the most suitable type for each question: use multiple for objective questions with one verifiably correct answer; use text for explanation, reflection, or open-ended questions. Include both types when appropriate. Multiple-choice questions need 4 distinct options and a correctOptionIndex. Never invent facts, repeat ideas, or include an answer key for text questions."
+        },
+        {
+          role: "user",
+          content: `Foydalanuvchi so'rovi: ${topic}\nSavollar soni: aynan ${count}\nSavollarni shu so'rovga mos, aniq va o'zaro takrorlanmaydigan qilib tuz.`
+        }
+      ]
+    })
+  };
   let response;
   for (let attempt = 0; attempt < 3; attempt++) {
-    response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json"
-      },
-      signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify({
-        model: process.env.AI_MODEL || "claude-sonnet-5-5",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }]
-      })
-    });
+    response = await fetch(`${baseUrl}/chat/completions`, request);
     if (![429, 500, 502, 503, 529].includes(response.status) || attempt === 2) break;
     await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
   }
@@ -107,9 +115,7 @@ export async function generateQuestions(topic, count) {
     throw new Error(`AI xizmati xato qaytardi (${response.status})${providerMessage ? `: ${providerMessage}` : ""}.`);
   }
   const payload = await response.json();
-  const content = Array.isArray(payload.content)
-    ? payload.content.filter(block => block.type === "text").map(block => block.text).join("\n")
-    : "";
+  const content = payload.choices?.[0]?.message?.content;
   if (!content) throw new Error("AI javobi bo'sh.");
   const parsed = JSON.parse(content);
   return { provider: "ai", ...validateQuiz(parsed, count, topic) };
