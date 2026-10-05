@@ -74,7 +74,7 @@ export async function generateQuestions(topic, count) {
   }
 
   const baseUrl = (process.env.AI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const request = {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -96,7 +96,13 @@ export async function generateQuestions(topic, count) {
         }
       ]
     })
-  });
+  };
+  let response;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    response = await fetch(`${baseUrl}/chat/completions`, request);
+    if (response.status !== 503 || attempt === 2) break;
+    await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
