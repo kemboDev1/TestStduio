@@ -107,14 +107,15 @@ router.post("/logout", (req, res, next) => {
 router.patch("/settings", requireUser, async (req, res, next) => {
   const theme = req.body?.theme === "dark" ? "dark" : "light";
   const language = ["uz", "ru", "en"].includes(req.body?.language) ? req.body.language : req.user.language;
-  const avatar = ["woman", "girl", "woman-sage", "woman-rose", "man", "boy", "man-blue", "man-olive"].includes(req.body?.avatar) ? req.body.avatar : (req.user.gender === "male" ? "man" : "woman");
+  const gender = ["male", "female"].includes(req.body?.gender) ? req.body.gender : req.user.gender;
+  const avatar = ["woman", "girl", "woman-sage", "woman-rose", "man", "boy", "man-blue", "man-olive"].includes(req.body?.avatar) ? req.body.avatar : (gender === "male" ? "man" : "woman");
   const textSize = ["small", "medium", "large"].includes(req.body?.textSize) ? req.body.textSize : (req.user.text_size || "medium");
   try {
     const result = await pool.query(
-      `UPDATE users SET theme = $2, language = $3, avatar = $4, text_size = $5
+      `UPDATE users SET theme = $2, language = $3, avatar = $4, text_size = $5, gender = $6
        WHERE id = $1
        RETURNING id, username, first_name, last_name, gender, role, avatar, theme, language, text_size, created_at, last_login_at`,
-      [req.user.id, theme, language, avatar, textSize]
+      [req.user.id, theme, language, avatar, textSize, gender]
     );
     return res.json({ user: publicUser(result.rows[0]) });
   } catch (error) {

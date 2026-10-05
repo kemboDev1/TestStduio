@@ -341,7 +341,7 @@ function App() {
           {canCreate && <SideNav active={page === "builder"} icon={<Plus size={18} />} onClick={startBuilder}>Test yaratish</SideNav>}
         </nav>
         <div className="sidebar-bottom">
-          <button className={`side-nav-button ${page === "settings" ? "active" : ""}`} onClick={() => { setSettingsDraft({ theme: user.theme || "light", language: user.language || "uz", textSize: user.textSize || "medium", avatar: user.avatar || (user.gender === "male" ? "man" : "woman") }); setPage("settings"); }}><Settings2 size={18} />Sozlamalar</button>
+          <button className={`side-nav-button ${page === "settings" ? "active" : ""}`} onClick={() => { setSettingsDraft({ theme: user.theme || "light", language: user.language || "uz", textSize: user.textSize || "medium", gender: user.gender || "female", avatar: user.avatar || (user.gender === "male" ? "man" : "woman") }); setPage("settings"); }}><Settings2 size={18} />Sozlamalar</button>
           <div className="sidebar-profile"><Avatar value={user.avatar} gender={user.gender} /><span><strong>{user.firstName || user.username} {user.lastName}</strong><small>{roleLabel(user.role)}</small></span><button className="icon-button" onClick={signOut} aria-label="Chiqish" title="Hisobdan chiqish"><LogOut size={16} /></button></div>
         </div>
       </aside>
@@ -539,7 +539,33 @@ function ResultsPage({ data, onBack }) {
 
 function SettingsPage({ user, draft, setDraft, onSave, busy }) {
   const avatars = ["woman", "girl", "woman-sage", "woman-rose", "man", "boy", "man-blue", "man-olive"];
-  return <div className="page-stack"><PageHeading eyebrow="SHAXSIY KABINET" title="Sozlamalar" subtitle="Til, matn hajmi va profil ko‘rinishini sozlang." /><form className="surface-card settings-card" onSubmit={onSave}><section className="settings-section"><div><h2>Profil belgisi</h2><p>{user.firstName || user.username} {user.lastName} · {user.gender === "male" ? "Erkak" : "Ayol"}</p></div><div className="avatar-picker">{avatars.map(icon => <button type="button" key={icon} className={`avatar-choice ${draft.avatar === icon ? "selected" : ""}`} aria-label={`Profil belgisi: ${icon}`} onClick={() => setDraft({ ...draft, avatar: icon })}><Avatar value={icon} className="settings-avatar" /></button>)}</div></section><section className="settings-section"><div><h2>Til</h2><p>Ilova tilini tanlang.</p></div><select className="settings-select" value={draft.language} onChange={event => setDraft({ ...draft, language: event.target.value })}><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select></section><section className="settings-section"><div><h2>Matn hajmi</h2><p>Yozuvlarni o‘qishga qulay qilib kattalashtiring.</p></div><select className="settings-select" value={draft.textSize || "medium"} onChange={event => setDraft({ ...draft, textSize: event.target.value })}><option value="small">Kichik</option><option value="medium">O‘rtacha</option><option value="large">Katta</option></select></section><section className="settings-section"><div><h2>Rang mavzusi</h2><p>O‘zingizga qulay rang mavzusini tanlang.</p></div><div className="theme-switch"><button type="button" className={draft.theme === "light" ? "selected" : ""} onClick={() => setDraft({ ...draft, theme: "light" })}><Sun size={16} />Yorug‘</button><button type="button" className={draft.theme === "dark" ? "selected" : ""} onClick={() => setDraft({ ...draft, theme: "dark" })}><Moon size={16} />Tungi</button></div></section><div className="settings-footer"><span><ShieldCheck size={15} />Hisobingiz himoyalangan</span><button className="button button-primary" disabled={busy}>{busy ? "Saqlanmoqda…" : "Sozlamalarni saqlash"}<Check size={16} /></button></div></form></div>;
+  const languages = [{ value: "uz", label: "O‘zbekcha", note: "UZ" }, { value: "ru", label: "Русский", note: "RU" }, { value: "en", label: "English", note: "EN" }];
+  const textSizes = [{ value: "small", label: "Kichik", sample: "Aa", className: "sample-small" }, { value: "medium", label: "O‘rtacha", sample: "Aa", className: "sample-medium" }, { value: "large", label: "Katta", sample: "Aa", className: "sample-large" }];
+  function chooseGender(gender) {
+    setDraft(current => {
+      const femaleAvatars = ["woman", "girl", "woman-sage", "woman-rose"];
+      const maleAvatars = ["man", "boy", "man-blue", "man-olive"];
+      const mismatchedAvatar = gender === "male" ? femaleAvatars.includes(current.avatar) : maleAvatars.includes(current.avatar);
+      return { ...current, gender, avatar: mismatchedAvatar ? (gender === "male" ? "man" : "woman") : current.avatar };
+    });
+  }
+  return <div className="page-stack">
+    <PageHeading eyebrow="SHAXSIY KABINET" title="Sozlamalar" subtitle="Til, matn hajmi va profil ko‘rinishini sozlang." />
+    <form className="surface-card settings-card" onSubmit={onSave}>
+      <section className="settings-section"><div><h2>Profil belgisi</h2><p>{user.firstName || user.username} {user.lastName} · {draft.gender === "male" ? "Erkak" : "Ayol"}</p></div><div className="avatar-picker">{avatars.map(icon => <button type="button" key={icon} className={`avatar-choice ${draft.avatar === icon ? "selected" : ""}`} aria-label={`Profil belgisi: ${icon}`} onClick={() => setDraft(current => ({ ...current, avatar: icon }))}><Avatar value={icon} className="settings-avatar" /></button>)}</div></section>
+      <section className="settings-section settings-choice-section"><div><h2>Jins</h2><p>Profilingizdagi jins ma’lumotini o‘zgartiring.</p></div><div className="settings-option-list gender-options" role="group" aria-label="Jins">
+        {[{ value: "female", label: "Ayol", avatar: "woman" }, { value: "male", label: "Erkak", avatar: "man" }].map(option => <button key={option.value} type="button" className={`settings-option gender-option ${draft.gender === option.value ? "selected" : ""}`} aria-pressed={draft.gender === option.value} onClick={() => chooseGender(option.value)}><Avatar value={option.avatar} className="settings-avatar" /><span>{option.label}</span>{draft.gender === option.value && <Check size={15} />}</button>)}
+      </div></section>
+      <section className="settings-section settings-choice-section"><div><h2>Til</h2><p>Ilova tilini tanlang.</p></div><div className="settings-option-list language-options" role="group" aria-label="Til">
+        {languages.map(option => <button key={option.value} type="button" className={`settings-option language-option ${draft.language === option.value ? "selected" : ""}`} aria-pressed={draft.language === option.value} onClick={() => setDraft(current => ({ ...current, language: option.value }))}><small>{option.note}</small><span>{option.label}</span>{draft.language === option.value && <Check size={15} />}</button>)}
+      </div></section>
+      <section className="settings-section settings-choice-section"><div><h2>Matn hajmi</h2><p>Yozuvlarni o‘qishga qulay qilib kattalashtiring.</p></div><div className="settings-option-list size-options" role="group" aria-label="Matn hajmi">
+        {textSizes.map(option => <button key={option.value} type="button" className={`settings-option size-option ${draft.textSize === option.value ? "selected" : ""}`} aria-pressed={draft.textSize === option.value} onClick={() => setDraft(current => ({ ...current, textSize: option.value }))}><strong className={option.className}>{option.sample}</strong><span>{option.label}</span></button>)}
+      </div></section>
+      <section className="settings-section"><div><h2>Rang mavzusi</h2><p>O‘zingizga qulay rang mavzusini tanlang.</p></div><div className="theme-switch"><button type="button" className={draft.theme === "light" ? "selected" : ""} onClick={() => setDraft(current => ({ ...current, theme: "light" }))}><Sun size={16} />Yorug‘</button><button type="button" className={draft.theme === "dark" ? "selected" : ""} onClick={() => setDraft(current => ({ ...current, theme: "dark" }))}><Moon size={16} />Tungi</button></div></section>
+      <div className="settings-footer"><span><ShieldCheck size={15} />Hisobingiz himoyalangan</span><button className="button button-primary" disabled={busy}>{busy ? "Saqlanmoqda…" : "Sozlamalarni saqlash"}<Check size={16} /></button></div>
+    </form>
+  </div>;
 }
 
 export default App;

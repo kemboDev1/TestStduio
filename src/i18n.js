@@ -86,7 +86,10 @@ const phrases = {
   "Test yaratish uchun avval guruh kerak": ["Create a group before making a test", "Сначала создайте группу для теста"],
   "Guruhlar bo‘limida guruh oching. Keyin testni shu yerda yaratib, guruhga joylaysiz.": ["Create a group in the Groups section. Then return here to create and publish your test.", "Создайте группу в разделе «Группы», затем вернитесь сюда, чтобы подготовить тест."],
   "Admin sizni Creator sifatida guruhga qo‘shgach, test tuza olasiz.": ["An admin must add you to a group as a Creator before you can create tests.", "Администратор должен добавить вас в группу с ролью автора тестов."],
-  "Guruh yaratish": ["Create a group", "Создать группу"]
+  "Guruh yaratish": ["Create a group", "Создать группу"],
+  "Profilingizdagi jins ma’lumotini o‘zgartiring.": ["Change the gender shown on your profile.", "Измените пол, указанный в профиле."], "Til, matn hajmi va profil ko‘rinishini sozlang.": ["Set your language, text size, and profile appearance.", "Настройте язык, размер текста и оформление профиля."],
+  "Jins": ["Gender", "Пол"], "Matn hajmi": ["Text size", "Размер текста"], "Kichik": ["Small", "Маленький"], "O‘rtacha": ["Medium", "Средний"], "Katta": ["Large", "Большой"],
+  "Erkak": ["Male", "Мужчина"], "Ayol": ["Female", "Женщина"], "Profil belgisi": ["Profile avatar", "Аватар профиля"]
 };
 const textOriginals = new WeakMap();
 const attrOriginals = new WeakMap();
