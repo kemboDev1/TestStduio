@@ -6,6 +6,7 @@ import {
   Settings2, ShieldCheck, Sparkles, Sun, Users, UserRound, WandSparkles, X
 } from "lucide-react";
 import { api, jsonBody } from "./api.js";
+import { localizePage } from "./i18n.js";
 
 const initialDraft = () => ({
   title: "", description: "", groupId: "",
@@ -13,14 +14,14 @@ const initialDraft = () => ({
 });
 
 const roleLabel = role => ({ admin: "Admin", creator: "Creator", tester: "Tester", user: "Tester" })[role] || "Tester";
-const dateLabel = value => value ? new Intl.DateTimeFormat("uz-UZ", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value)) : "—";
+const dateLabel = (value, language = document.documentElement.lang || "uz") => value ? new Intl.DateTimeFormat(({ uz: "uz-UZ", ru: "ru-RU", en: "en-US" })[language] || "uz-UZ", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value)) : "—";
 
 function App() {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState("home");
   const [authMode, setAuthMode] = useState("login");
-  const [authForm, setAuthForm] = useState({ username: "", password: "", inviteCode: "" });
+  const [authForm, setAuthForm] = useState({ username: "", firstName: "", lastName: "", gender: "female", password: "", inviteCode: "" });
   const [groups, setGroups] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [overview, setOverview] = useState({ group_count: 0, client_count: 0, quiz_count: 0, response_count: 0 });
@@ -72,10 +73,28 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      document.documentElement.dataset.theme = "light";
+      document.documentElement.dataset.textSize = "medium";
+      document.documentElement.lang = "uz";
+      localizePage(document.body, "uz");
+      return;
+    }
     document.documentElement.dataset.theme = user.theme || "light";
+    document.documentElement.dataset.textSize = user.textSize || "medium";
+    document.documentElement.lang = user.language || "uz";
+    localizePage(document.body, user.language || "uz");
+    const observer = new MutationObserver(records => records.forEach(record => {
+      if (record.type === "characterData") localizePage(record.target.parentElement, user.language || "uz");
+      for (const node of record.addedNodes || []) {
+        if (node.nodeType === Node.ELEMENT_NODE) localizePage(node, user.language || "uz");
+        else if (node.nodeType === Node.TEXT_NODE && node.parentElement) localizePage(node.parentElement, user.language || "uz");
+      }
+    }));
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     loadWorkspace().catch(error => announce(error.message));
-  }, [user?.id, user?.theme]);
+    return () => observer.disconnect();
+  }, [user?.id, user?.theme, user?.language, user?.textSize]);
 
   useEffect(() => {
     if (page === "groups" && isAdmin && selectedGroupId) {
@@ -97,7 +116,7 @@ function App() {
       const payload = await api(path, { method: "POST", body: jsonBody(authForm) });
       setUser(payload.user);
       setPage("home");
-      setAuthForm({ username: "", password: "", inviteCode: "" });
+      setAuthForm({ username: "", firstName: "", lastName: "", gender: "female", password: "", inviteCode: "" });
     } catch (error) { announce(error.message); }
     finally { setAuthBusy(false); }
   }
@@ -269,12 +288,21 @@ function App() {
     finally { setBusy(false); }
   }
 
-  async function moderate(id, action) {
+  async function moderate(id, action, values = {}) {
     try {
-      await api(`/admin/users/${id}`, { method: "PATCH", body: jsonBody({ action }) });
+      if (action === "delete" && !window.confirm("Hisob butunlay o‘chirilsinmi? Bu amalni qaytarib bo‘lmaydi.")) return;
+      if (action === "deleteQuiz") {
+        if (!window.confirm("Test va uning javoblarini butunlay o‘chirasizmi?")) return;
+        await api(`/quizzes/${id}`, { method: "DELETE" });
+        await loadWorkspace();
+        announce("Test o‘chirildi.");
+        return;
+      }
+      const method = action === "delete" ? "DELETE" : "PATCH";
+      await api(`/admin/users/${id}`, { method, ...(method === "PATCH" ? { body: jsonBody({ action, ...values }) } : {}) });
       const { users } = await api("/admin/users");
       setAdminUsers(users);
-      announce(action === "warn" ? "Ogohlantirish qo‘shildi." : action === "ban" ? "Hisob vaqtincha bloklandi." : "Hisob qayta faollashtirildi.");
+      announce(({ warn: "Ogohlantirish qo‘shildi.", ban: "Hisob bloklandi.", suspend: "Hisob vaqtincha to‘xtatildi.", role: "Foydalanuvchi roli yangilandi.", delete: "Hisob o‘chirildi.", unban: "Hisob qayta faollashtirildi." })[action]);
     } catch (error) { announce(error.message); }
   }
 
@@ -302,8 +330,8 @@ function App() {
           {canCreate && <SideNav active={page === "builder"} icon={<Plus size={18} />} onClick={startBuilder}>Test yaratish</SideNav>}
         </nav>
         <div className="sidebar-bottom">
-          <button className={`side-nav-button ${page === "settings" ? "active" : ""}`} onClick={() => { setSettingsDraft({ theme: user.theme || "light", language: user.language || "uz", avatar: user.avatar || "" }); setPage("settings"); }}><Settings2 size={18} />Sozlamalar</button>
-          <div className="sidebar-profile"><Avatar value={user.avatar} /><span><strong>{user.username}</strong><small>{roleLabel(user.role)}</small></span><button className="icon-button" onClick={signOut} aria-label="Chiqish" title="Hisobdan chiqish"><LogOut size={16} /></button></div>
+          <button className={`side-nav-button ${page === "settings" ? "active" : ""}`} onClick={() => { setSettingsDraft({ theme: user.theme || "light", language: user.language || "uz", textSize: user.textSize || "medium", avatar: user.avatar || (user.gender === "male" ? "man" : "woman") }); setPage("settings"); }}><Settings2 size={18} />Sozlamalar</button>
+          <div className="sidebar-profile"><Avatar value={user.avatar} gender={user.gender} /><span><strong>{user.firstName || user.username} {user.lastName}</strong><small>{roleLabel(user.role)}</small></span><button className="icon-button" onClick={signOut} aria-label="Chiqish" title="Hisobdan chiqish"><LogOut size={16} /></button></div>
         </div>
       </aside>
 
@@ -313,8 +341,8 @@ function App() {
           <div className="topbar-actions">
             {groups.length > 0 && <label className="group-switcher"><Users size={15} /><select value={selectedGroupId} onChange={event => setSelectedGroupId(event.target.value)} aria-label="Faol guruh">{groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select><ChevronRight size={14} /></label>}
             <span className="topbar-divider" />
-            <Avatar value={user.avatar} />
-            <span className="topbar-user">{user.username}</span>
+            <Avatar value={user.avatar} gender={user.gender} />
+            <span className="topbar-user">{user.firstName || user.username}</span>
           </div>
         </header>
 
@@ -323,7 +351,7 @@ function App() {
         <main className="main-content">
           {page === "home" && <Dashboard user={user} groups={groups} quizzes={quizzes} overview={overview} onNavigate={setPage} onCreate={startBuilder} onOpenQuiz={openQuiz} />}
           {page === "groups" && <GroupsPage user={user} groups={groups} selectedGroup={selectedGroup} selectedGroupId={selectedGroupId} setSelectedGroupId={setSelectedGroupId} members={groupMembers} groupForm={groupForm} setGroupForm={setGroupForm} onCreate={createGroup} onSave={saveGroup} memberForm={memberForm} setMemberForm={setMemberForm} onAddMember={addMember} onRemoveMember={removeMember} onJoin={joinGroup} onCopy={copyInvite} busy={busy} />}
-          {page === "tests" && <TestsPage user={user} quizzes={visibleQuizzes} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onCreate={startBuilder} onOpen={openQuiz} onResults={openResults} busy={busy} />}
+          {page === "tests" && <TestsPage user={user} quizzes={visibleQuizzes} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onCreate={startBuilder} onOpen={openQuiz} onResults={openResults} onDelete={moderate} busy={busy} />}
           {page === "members" && <MembersPage users={adminUsers} groups={groups} onManageGroups={() => setPage("groups")} onModerate={moderate} />}
           {page === "builder" && <BuilderPage draft={draft} setDraft={setDraft} groups={authorGroups} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} aiProvider={aiProvider} busy={busy} onAi={generateWithAi} onPublish={publishQuiz} onBack={() => setPage("tests")} updateQuestion={updateQuestion} />}
           {page === "play" && selectedQuiz && <PlayPage data={selectedQuiz} answers={answers} setAnswers={setAnswers} attempt={attempt} busy={busy} onSubmit={submitAttempt} onBack={() => setPage("tests")} />}
@@ -339,8 +367,9 @@ function pageTitle(page) {
   return ({ home: "Umumiy ko‘rinish", groups: "Guruhlar", tests: "Testlar", members: "Ishtirokchilar", builder: "Test yaratish", play: "Test topshirish", results: "Javoblar", settings: "Sozlamalar" })[page] || "Umumiy ko‘rinish";
 }
 
-function Avatar({ value, className = "avatar" }) {
-  return <span className={className}>{value?.startsWith("data:image/") ? <img src={value} alt="" /> : value || "?"}</span>;
+function Avatar({ value, gender = "female", className = "avatar" }) {
+  const icon = ["woman", "girl", "woman-sage", "woman-rose", "man", "boy", "man-blue", "man-olive"].includes(value) ? value : gender === "male" ? "man" : "woman";
+  return <span className={`${className} avatar-illustration`}><img src={`/avatars/${icon}.svg`} alt="" /></span>;
 }
 
 function SideNav({ active, icon, onClick, children }) {
@@ -361,7 +390,9 @@ function AuthScreen({ mode, setMode, form, setForm, onSubmit, busy, notice }) {
         <span className="eyebrow">{registering ? "YANGI HISOB" : "XUSH KELIBSIZ"}</span>
         <h2>{registering ? "Hisob yarating" : "Hisobingizga kiring"}</h2>
         <p className="auth-lead">{registering ? "Ismingiz va parolingiz bilan boshlang." : "Amaliyot kabinetingizni davom ettiring."}</p>
-        <label>Ism<input autoComplete="username" minLength="2" maxLength="32" value={form.username} onChange={event => setForm({ ...form, username: event.target.value })} placeholder="Ismingiz" required /></label>
+        {registering && <div className="auth-name-row"><label>Ism<input autoComplete="given-name" minLength="2" maxLength="60" value={form.firstName} onChange={event => setForm({ ...form, firstName: event.target.value })} placeholder="Ismingiz" required /></label><label>Familiya<input autoComplete="family-name" minLength="2" maxLength="60" value={form.lastName} onChange={event => setForm({ ...form, lastName: event.target.value })} placeholder="Familiyangiz" required /></label></div>}
+        <label>{registering ? "Foydalanuvchi nomi" : "Ism yoki foydalanuvchi nomi"}<input autoComplete="username" minLength="2" maxLength="32" value={form.username} onChange={event => setForm({ ...form, username: event.target.value })} placeholder={registering ? "Kirish uchun nom" : "Foydalanuvchi nomi"} required /></label>
+        {registering && <label>Jins<select value={form.gender} onChange={event => setForm({ ...form, gender: event.target.value })}><option value="female">Ayol</option><option value="male">Erkak</option></select></label>}
         <label>Parol<input autoComplete={registering ? "new-password" : "current-password"} type="password" minLength={registering ? 8 : 1} value={form.password} onChange={event => setForm({ ...form, password: event.target.value })} placeholder={registering ? "Kamida 8 ta belgi" : "Parolingiz"} required /></label>
         {registering && <label>Guruh taklif kodi <span className="optional-label">ixtiyoriy</span><input autoComplete="off" maxLength="32" value={form.inviteCode} onChange={event => setForm({ ...form, inviteCode: event.target.value.toUpperCase() })} placeholder="Masalan: 9FA2C61E88B4" /></label>}
         {notice && <p className="form-error" role="alert">{notice}</p>}
@@ -417,18 +448,18 @@ function GroupsPage({ user, groups, selectedGroup, selectedGroupId, setSelectedG
           <form className="group-edit-form" onSubmit={onSave}><label>Guruh nomi<input name="name" defaultValue={selectedGroup.name} maxLength="100" required /></label><label>Izoh<textarea name="description" defaultValue={selectedGroup.description} maxLength="500" rows="2" /></label><label className="check-row"><input name="rotateInvite" type="checkbox" />Eski taklif kodini bekor qilib, yangisini yaratish</label><button className="button button-outline" disabled={busy}>O‘zgarishlarni saqlash</button></form>
           <div className="invite-panel"><div><span className="eyebrow">MIJOZLAR UCHUN TAKLIF KODI</span><strong>{selectedGroup.invite_code}</strong><p>Kod bilan ro‘yxatdan o‘tgan foydalanuvchi shu guruhga qo‘shiladi.</p></div><button className="button button-primary" onClick={() => onCopy(selectedGroup.invite_code)}><Copy size={15} />Nusxalash</button></div>
           <div className="member-management"><div className="section-heading"><div><span className="eyebrow">GURUH A’ZOLARI</span><h3>Ishtirokchilar</h3></div><span className="section-meta">{members.length} kishi</span></div><form className="add-member-form" onSubmit={onAddMember}><label>Ro‘yxatdan o‘tgan foydalanuvchi nomi<input value={memberForm.username} onChange={event => setMemberForm({ ...memberForm, username: event.target.value })} minLength="2" maxLength="32" placeholder="Foydalanuvchi ismi" required /></label><label>Roli<select value={memberForm.role} onChange={event => setMemberForm({ ...memberForm, role: event.target.value })}><option value="tester">Tester — mijoz</option><option value="creator">Creator — test tuzuvchi</option></select></label><button className="button button-primary" disabled={busy}><Plus size={16} />Qo‘shish</button></form>
-            <div className="member-list">{members.map(member => <article className="member-row" key={member.id}><Avatar value={member.avatar} /><span className="member-name"><strong>{member.username}</strong><small>{member.response_count} ta javob yuborgan</small></span><span className={`role-chip ${member.member_role === "creator" ? "role-creator" : ""}`}>{roleLabel(member.member_role)}</span><button className="icon-button icon-danger" title="Guruhdan olib tashlash" onClick={() => onRemoveMember(member)}><X size={16} /></button></article>)}{!members.length && <p className="muted">Guruhda hali ishtirokchi yo‘q. Taklif kodini ulashing yoki foydalanuvchini qo‘shing.</p>}</div>
+            <div className="member-list">{members.map(member => <article className="member-row" key={member.id}><Avatar value={member.avatar} gender={member.gender} /><span className="member-name"><strong>{member.first_name ? `${member.first_name} ${member.last_name}` : member.username}</strong><small>{member.response_count} ta javob yuborgan</small></span><span className={`role-chip ${member.member_role === "creator" ? "role-creator" : ""}`}>{roleLabel(member.member_role)}</span><button className="icon-button icon-danger" title="Guruhdan olib tashlash" onClick={() => onRemoveMember(member)}><X size={16} /></button></article>)}{!members.length && <p className="muted">Guruhda hali ishtirokchi yo‘q. Taklif kodini ulashing yoki foydalanuvchini qo‘shing.</p>}</div>
           </div>
         </section>}
       </div> : !isAdmin && user.role !== "tester" ? <EmptyMessage icon={<Users size={24} />} title="Sizga guruh biriktirilmagan" text="Admin sizni guruhga Creator sifatida qo‘shishi mumkin." /> : null}
   </div>;
 }
 
-function TestsPage({ user, quizzes, searchTerm, setSearchTerm, onCreate, onOpen, onResults, busy }) {
+function TestsPage({ user, quizzes, searchTerm, setSearchTerm, onCreate, onOpen, onResults, onDelete, busy }) {
   const canCreate = ["admin", "creator"].includes(user.role);
   return <div className="page-stack"><PageHeading eyebrow="MULOHAZA VA O‘ZINI ANGLASH" title="Guruh testlari" subtitle="Testlar maxfiy guruhlar ichida tarqatiladi. Har bir mijoz faqat o‘zi a’zo bo‘lgan guruhlarni ko‘radi." action={canCreate && <button className="button button-primary" onClick={onCreate}><Plus size={16} />Yangi test</button>} />
     <div className="list-toolbar"><label className="search-field"><Search size={17} /><input value={searchTerm} onChange={event => setSearchTerm(event.target.value)} placeholder="Test nomi yoki guruh bo‘yicha qidiring" /></label><span>{quizzes.length} ta test</span></div>
-    {quizzes.length ? <div className="test-list">{quizzes.map((quiz, index) => <article className="test-row" key={quiz.id}><span className={`test-art art-${index % 4}`}><BookOpen size={21} /></span><div className="test-row-main"><span className="test-group">{quiz.group_name || "Guruh testi"}</span><h3>{quiz.title}</h3><p>{quiz.description || "Qisqa mulohaza va o‘zini anglash savollari."}</p><div className="test-meta"><span><ClipboardList size={14} />{quiz.question_count} savol</span>{canCreate && <span><Users size={14} />{quiz.response_count} javob</span>}<span><Clock3 size={14} />{dateLabel(quiz.created_at)}</span></div></div><div className="test-row-actions">{canCreate && <button className="button button-outline" disabled={busy} onClick={() => onResults(quiz)}><Eye size={15} />Javoblar</button>}<button className="button button-primary" disabled={busy} onClick={() => onOpen(quiz)}>{canCreate ? "Ko‘rish" : "Testni boshlash"}<ArrowRight size={15} /></button></div></article>)}</div> : <EmptyMessage icon={<ClipboardList size={24} />} title="Bu yerda hozircha test yo‘q" text={canCreate ? "Guruh tanlab, birinchi mulohaza testingizni yarating." : "Psixologingiz guruhingiz uchun test joylaganda shu yerda ko‘rinadi."} action={canCreate && <button className="button button-primary" onClick={onCreate}><Plus size={16} />Test yaratish</button>} />}
+    {quizzes.length ? <div className="test-list">{quizzes.map((quiz, index) => <article className="test-row" key={quiz.id}><span className={`test-art art-${index % 4}`}><BookOpen size={21} /></span><div className="test-row-main"><span className="test-group">{quiz.group_name || "Guruh testi"}</span><h3>{quiz.title}</h3><p>{quiz.description || "Qisqa mulohaza va o‘zini anglash savollari."}</p><div className="test-meta"><span><ClipboardList size={14} />{quiz.question_count} savol</span>{canCreate && <span><Users size={14} />{quiz.response_count} javob</span>}<span><Clock3 size={14} />{dateLabel(quiz.created_at)}</span></div></div><div className="test-row-actions">{canCreate && <button className="button button-outline" disabled={busy} onClick={() => onResults(quiz)}><Eye size={15} />Javoblar</button>}<button className="button button-primary" disabled={busy} onClick={() => onOpen(quiz)}>{canCreate ? "Ko‘rish" : "Testni boshlash"}<ArrowRight size={15} /></button>{quiz.can_delete && <button className="icon-button icon-danger" title="Testni o‘chirish" aria-label="Testni o‘chirish" onClick={() => onDelete(quiz.id, "deleteQuiz")}><X size={16} /></button>}</div></article>)}</div> : <EmptyMessage icon={<ClipboardList size={24} />} title="Bu yerda hozircha test yo‘q" text={canCreate ? "Guruh tanlab, birinchi mulohaza testingizni yarating." : "Psixologingiz guruhingiz uchun test joylaganda shu yerda ko‘rinadi."} action={canCreate && <button className="button button-primary" onClick={onCreate}><Plus size={16} />Test yaratish</button>} />}
   </div>;
 }
 
@@ -436,7 +467,7 @@ function MembersPage({ users, groups, onManageGroups, onModerate }) {
   return <div className="page-stack"><PageHeading eyebrow="KABINET BOSHQARUVI" title="Ishtirokchilar" subtitle="Foydalanuvchilar hisobini va faolligini boshqaring. Ularni guruhga qo‘shish uchun Guruhlar bo‘limini oching." action={<button className="button button-outline" onClick={onManageGroups}><Users size={16} />Guruhlarni boshqarish</button>} />
     <div className="member-summary"><span>{users.length} ta hisob</span><span>{users.filter(item => item.role === "creator").length} ta Creator</span><span>{users.filter(item => item.is_banned).length} ta bloklangan</span></div>
     <section className="surface-card people-table"><div className="people-table-head"><span>FOYDALANUVCHI</span><span>ROL</span><span>FAOLIYAT</span><span>OXIRGI KIRISH</span><span>HOLAT</span><span>AMAL</span></div>
-      {users.map(item => <article className="people-table-row" key={item.id}><span className="people-name"><Avatar value={item.avatar} /><strong>{item.username}</strong></span><span><span className={`role-chip ${item.role === "creator" ? "role-creator" : ""}`}>{roleLabel(item.role)}</span></span><span>{item.quiz_count} test · {item.attempt_count} javob</span><span>{dateLabel(item.last_login_at)}</span><span><span className={`account-status ${item.is_banned ? "blocked" : ""}`}><i />{item.is_banned ? "Bloklangan" : "Faol"}</span></span><span className="people-actions"><button className="text-link" onClick={() => onModerate(item.id, item.is_banned ? "unban" : "ban")}>{item.is_banned ? "Ochish" : "Bloklash"}</button><button className="text-link" onClick={() => onModerate(item.id, "warn")}>Ogohlantirish</button></span></article>)}
+      {users.map(item => { const suspended = item.suspended_until && new Date(item.suspended_until) > new Date(); return <article className="people-table-row" key={item.id}><span className="people-name"><Avatar value={item.avatar} gender={item.gender} /><strong>{item.first_name || item.username} {item.last_name}</strong></span><span>{item.role === "admin" ? <span className="role-chip">Admin</span> : <select className="role-select" aria-label="Foydalanuvchi roli" value={item.role === "creator" ? "creator" : "tester"} onChange={event => onModerate(item.id, "role", { role: event.target.value })}><option value="tester">Tester</option><option value="creator">Creator</option></select>}</span><span>{item.quiz_count} test · {item.attempt_count} javob</span><span>{dateLabel(item.last_login_at)}</span><span><span className={`account-status ${item.is_banned || suspended ? "blocked" : ""}`}><i />{item.is_banned ? "Bloklangan" : suspended ? "Vaqtincha to‘xtatilgan" : "Faol"}</span></span><span className="people-actions">{item.role !== "admin" && <><button className="text-link" onClick={() => onModerate(item.id, item.is_banned || suspended ? "unban" : "ban")}>{item.is_banned || suspended ? "Qayta ochish" : "Bloklash"}</button><button className="text-link" onClick={() => onModerate(item.id, "suspend", { days: 7 })}>7 kunga to‘xtatish</button><button className="text-link" onClick={() => onModerate(item.id, "warn")}>Ogohlantirish</button><button className="text-link danger-link" onClick={() => onModerate(item.id, "delete")}>Hisobni o‘chirish</button></>}</span></article>; })}
       {!users.length && <EmptyMessage icon={<UserRound size={22} />} title="Hali foydalanuvchi yo‘q" text={groups.length ? "Guruh taklif kodini ulashing yoki foydalanuvchini guruh sozlamalaridan qo‘shing." : "Avval guruh yarating va taklif kodini ulashing."} />}
     </section>
   </div>;
@@ -477,20 +508,13 @@ function PlayPage({ data, answers, setAnswers, attempt, busy, onSubmit, onBack }
 function ResultsPage({ data, onBack }) {
   const { quiz, questions, results } = data;
   return <div className="page-stack"><button className="back-link" onClick={onBack}><ArrowLeft size={15} />Testlarga qaytish</button><PageHeading eyebrow={`${quiz.group_name || "GURUH"} · JAVOBLAR`} title={quiz.title} subtitle="Javoblarni faqat ushbu guruhga ruxsati bor mutaxassislar ko‘ra oladi." /><div className="results-summary"><span><Users size={17} /><strong>{results.length}</strong> ta javob</span><span><ClipboardList size={17} /><strong>{questions.length}</strong> ta savol</span></div>
-    {results.length ? <div className="response-list">{results.map(result => <details className="response-card" key={result.id}><summary><Avatar value={result.avatar} /><span><strong>{result.username}</strong><small>{dateLabel(result.created_at)} · test topshirildi</small></span><ChevronRight size={17} /></summary><div className="response-answers">{questions.map((question, index) => { const answer = result.answers.find(item => item.questionId === question.id); return <article key={question.id}><span>SAVOL {String(index + 1).padStart(2, "0")}</span><strong>{question.prompt}</strong><p>{answer?.answer || "Javob berilmagan"}</p></article>; })}</div></details>)}</div> : <EmptyMessage icon={<FileText size={23} />} title="Hali javob kelmagan" text="Mijozlar testingizni topshirganda javoblari shu yerda paydo bo‘ladi." />}
+    {results.length ? <div className="response-list">{results.map(result => <details className="response-card" key={result.id}><summary><Avatar value={result.avatar} gender={result.gender} /><span><strong>{result.first_name ? `${result.first_name} ${result.last_name}` : result.username}</strong><small>{dateLabel(result.created_at)} · test topshirildi</small></span><ChevronRight size={17} /></summary><div className="response-answers">{questions.map((question, index) => { const answer = result.answers.find(item => item.questionId === question.id); return <article key={question.id}><span>SAVOL {String(index + 1).padStart(2, "0")}</span><strong>{question.prompt}</strong><p>{answer?.answer || "Javob berilmagan"}</p></article>; })}</div></details>)}</div> : <EmptyMessage icon={<FileText size={23} />} title="Hali javob kelmagan" text="Mijozlar testingizni topshirganda javoblari shu yerda paydo bo‘ladi." />}
   </div>;
 }
 
 function SettingsPage({ user, draft, setDraft, onSave, busy }) {
-  const [photoError, setPhotoError] = useState("");
-  function choosePhoto(event) {
-    const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) { setPhotoError("Rasm 5 MB dan kichik bo‘lishi kerak."); return; }
-    const url = URL.createObjectURL(file); const image = new Image();
-    image.onload = () => { const scale = Math.min(1, 256 / Math.max(image.naturalWidth, image.naturalHeight)); const canvas = document.createElement("canvas"); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale)); const context = canvas.getContext("2d"); context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); const avatar = canvas.toDataURL("image/jpeg", 0.72); if (avatar.length > 200_000) { setPhotoError("Rasm juda katta. Boshqa rasm tanlang."); return; } setPhotoError(""); setDraft(current => ({ ...current, avatar })); };
-    image.onerror = () => { URL.revokeObjectURL(url); setPhotoError("Rasmni yuklab bo‘lmadi."); }; image.src = url;
-  }
-  return <div className="page-stack"><PageHeading eyebrow="SHAXSIY KABINET" title="Sozlamalar" subtitle="Profil rasmingiz va ko‘rinish mavzusini sozlang." /><form className="surface-card settings-card" onSubmit={onSave}><section className="settings-section"><div><h2>Profil</h2><p>Hisobingizdagi ko‘rinadigan ma’lumotlar.</p></div><div className="profile-edit"><Avatar value={draft.avatar} className="settings-avatar" /><div><strong>{user.username}</strong><small>{roleLabel(user.role)} hisobi</small><label className="button button-outline photo-picker">Rasm tanlash<input type="file" accept="image/*" onChange={choosePhoto} /></label></div></div></section><section className="settings-section"><div><h2>Ko‘rinish</h2><p>O‘zingizga qulay rang mavzusini tanlang.</p></div><div className="theme-switch"><button type="button" className={draft.theme === "light" ? "selected" : ""} onClick={() => setDraft({ ...draft, theme: "light" })}><Sun size={16} />Yorug‘</button><button type="button" className={draft.theme === "dark" ? "selected" : ""} onClick={() => setDraft({ ...draft, theme: "dark" })}><Moon size={16} />Tungi</button></div></section>{photoError && <p className="form-error">{photoError}</p>}<div className="settings-footer"><span><ShieldCheck size={15} />Hisobingiz himoyalangan</span><button className="button button-primary" disabled={busy}>{busy ? "Saqlanmoqda…" : "Sozlamalarni saqlash"}<Check size={16} /></button></div></form></div>;
+  const avatars = ["woman", "girl", "woman-sage", "woman-rose", "man", "boy", "man-blue", "man-olive"];
+  return <div className="page-stack"><PageHeading eyebrow="SHAXSIY KABINET" title="Sozlamalar" subtitle="Til, matn hajmi va profil ko‘rinishini sozlang." /><form className="surface-card settings-card" onSubmit={onSave}><section className="settings-section"><div><h2>Profil belgisi</h2><p>{user.firstName || user.username} {user.lastName} · {user.gender === "male" ? "Erkak" : "Ayol"}</p></div><div className="avatar-picker">{avatars.map(icon => <button type="button" key={icon} className={`avatar-choice ${draft.avatar === icon ? "selected" : ""}`} aria-label={`Profil belgisi: ${icon}`} onClick={() => setDraft({ ...draft, avatar: icon })}><Avatar value={icon} className="settings-avatar" /></button>)}</div></section><section className="settings-section"><div><h2>Til</h2><p>Ilova tilini tanlang.</p></div><select className="settings-select" value={draft.language} onChange={event => setDraft({ ...draft, language: event.target.value })}><option value="uz">O‘zbekcha</option><option value="ru">Русский</option><option value="en">English</option></select></section><section className="settings-section"><div><h2>Matn hajmi</h2><p>Yozuvlarni o‘qishga qulay qilib kattalashtiring.</p></div><select className="settings-select" value={draft.textSize || "medium"} onChange={event => setDraft({ ...draft, textSize: event.target.value })}><option value="small">Kichik</option><option value="medium">O‘rtacha</option><option value="large">Katta</option></select></section><section className="settings-section"><div><h2>Rang mavzusi</h2><p>O‘zingizga qulay rang mavzusini tanlang.</p></div><div className="theme-switch"><button type="button" className={draft.theme === "light" ? "selected" : ""} onClick={() => setDraft({ ...draft, theme: "light" })}><Sun size={16} />Yorug‘</button><button type="button" className={draft.theme === "dark" ? "selected" : ""} onClick={() => setDraft({ ...draft, theme: "dark" })}><Moon size={16} />Tungi</button></div></section><div className="settings-footer"><span><ShieldCheck size={15} />Hisobingiz himoyalangan</span><button className="button button-primary" disabled={busy}>{busy ? "Saqlanmoqda…" : "Sozlamalarni saqlash"}<Check size={16} /></button></div></form></div>;
 }
 
 export default App;

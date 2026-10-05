@@ -19,10 +19,15 @@ function sessionLogin(req, userId) {
 
 router.post("/register", authLimiter, async (req, res, next) => {
   const username = cleanString(req.body?.username, 32).normalize("NFKC");
+  const firstName = cleanString(req.body?.firstName, 60);
+  const lastName = cleanString(req.body?.lastName, 60);
+  const gender = req.body?.gender;
   const usernameKey = username.toLocaleLowerCase("uz-UZ");
   const password = String(req.body?.password || "");
   const inviteCode = cleanString(req.body?.inviteCode, 32).toUpperCase();
 
+  if (firstName.length < 2 || lastName.length < 2) return res.status(400).json({ error: "Ism va familiya kamida 2 ta belgidan iborat bo‘lsin." });
+  if (!["male", "female"].includes(gender)) return res.status(400).json({ error: "Jinsni tanlang." });
   if (!/^[\p{L}\p{N}_. -]{2,32}$/u.test(username)) {
     return res.status(400).json({ error: "Ism 2–32 belgi bo‘lsin; harf, raqam, bo‘sh joy, nuqta va chiziqcha ishlating." });
   }
@@ -45,10 +50,10 @@ router.post("/register", authLimiter, async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
     const inserted = await client.query(
-      `INSERT INTO users (username, username_key, password_hash, role, language)
-       VALUES ($1, $2, $3, 'tester', 'uz')
-       RETURNING id, username, role, avatar, theme, language, created_at, last_login_at`,
-      [username, usernameKey, passwordHash]
+      `INSERT INTO users (username, username_key, first_name, last_name, gender, password_hash, role, language)
+       VALUES ($1, $2, $3, $4, $5, $6, 'tester', 'uz')
+       RETURNING id, username, first_name, last_name, gender, role, avatar, theme, language, text_size, created_at, last_login_at`,
+      [username, usernameKey, firstName, lastName, gender, passwordHash]
     );
     const user = inserted.rows[0];
     if (group) {
@@ -71,12 +76,12 @@ router.post("/login", authLimiter, async (req, res, next) => {
   const password = String(req.body?.password || "");
   try {
     const result = await pool.query(
-      `SELECT id, username, role, avatar, theme, language, password_hash, is_banned, created_at, last_login_at
+      `SELECT id, username, first_name, last_name, gender, role, avatar, theme, language, text_size, password_hash, is_banned, suspended_until, created_at, last_login_at
        FROM users WHERE username_key = $1`,
       [usernameKey]
     );
     const user = result.rows[0];
-    if (!user || user.is_banned || !(await bcrypt.compare(password, user.password_hash))) {
+    if (!user || user.is_banned || (user.suspended_until && new Date(user.suspended_until) > new Date()) || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ error: "Ism yoki parol noto‘g‘ri." });
     }
     await pool.query("UPDATE users SET last_login_at = NOW() WHERE id = $1", [user.id]);
@@ -102,16 +107,14 @@ router.post("/logout", (req, res, next) => {
 router.patch("/settings", requireUser, async (req, res, next) => {
   const theme = req.body?.theme === "dark" ? "dark" : "light";
   const language = ["uz", "ru", "en"].includes(req.body?.language) ? req.body.language : req.user.language;
-  const avatar = cleanString(req.body?.avatar, 220_000);
-  if (avatar && !/^data:image\/(png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(avatar)) {
-    return res.status(400).json({ error: "Profil rasmi noto‘g‘ri formatda." });
-  }
+  const avatar = ["woman", "girl", "woman-sage", "woman-rose", "man", "boy", "man-blue", "man-olive"].includes(req.body?.avatar) ? req.body.avatar : (req.user.gender === "male" ? "man" : "woman");
+  const textSize = ["small", "medium", "large"].includes(req.body?.textSize) ? req.body.textSize : (req.user.text_size || "medium");
   try {
     const result = await pool.query(
-      `UPDATE users SET theme = $2, language = $3, avatar = $4
+      `UPDATE users SET theme = $2, language = $3, avatar = $4, text_size = $5
        WHERE id = $1
-       RETURNING id, username, role, avatar, theme, language, created_at, last_login_at`,
-      [req.user.id, theme, language, avatar]
+       RETURNING id, username, first_name, last_name, gender, role, avatar, theme, language, text_size, created_at, last_login_at`,
+      [req.user.id, theme, language, avatar, textSize]
     );
     return res.json({ user: publicUser(result.rows[0]) });
   } catch (error) {

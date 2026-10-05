@@ -119,7 +119,7 @@ router.get("/groups/:id/members", requireAdmin, async (req, res, next) => {
     const group = await pool.query("SELECT id FROM groups WHERE id = $1 AND owner_id = $2", [req.params.id, req.user.id]);
     if (!group.rowCount) return res.status(404).json({ error: "Guruh topilmadi." });
     const result = await pool.query(
-      `SELECT u.id, u.username, u.avatar, u.role, gm.member_role, gm.joined_at,
+      `SELECT u.id, u.username, u.first_name, u.last_name, u.gender, u.avatar, u.role, gm.member_role, gm.joined_at,
               (SELECT COUNT(*)::int FROM attempts a JOIN quizzes q ON q.id = a.quiz_id WHERE q.group_id = gm.group_id AND a.user_id = u.id AND a.is_practice = FALSE) AS response_count
        FROM group_members gm JOIN users u ON u.id = gm.user_id
        WHERE gm.group_id = $1 ORDER BY gm.joined_at DESC`,
@@ -172,6 +172,7 @@ router.get("/quizzes", async (req, res, next) => {
     const result = await pool.query(
       `SELECT q.id, q.title, q.description, q.owner_id, q.group_id, q.created_at,
               owner.username AS owner_name, g.name AS group_name,
+              (q.owner_id = $1 OR (g.owner_id = $1 AND $2 = 'admin')) AS can_delete,
               (SELECT COUNT(*)::int FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS question_count,
               (SELECT COUNT(*)::int FROM attempts a WHERE a.quiz_id = q.id AND a.is_practice = FALSE) AS response_count
        FROM quizzes q JOIN users owner ON owner.id = q.owner_id
@@ -179,7 +180,7 @@ router.get("/quizzes", async (req, res, next) => {
        LEFT JOIN group_members gm ON gm.group_id = q.group_id AND gm.user_id = $1
        WHERE q.owner_id = $1 OR g.owner_id = $1 OR gm.user_id = $1
        ORDER BY q.created_at DESC LIMIT 200`,
-      [req.user.id]
+      [req.user.id, req.user.role]
     );
     res.json({ quizzes: result.rows });
   } catch (error) { next(error); }
@@ -246,7 +247,7 @@ router.get("/quizzes/:id/results", async (req, res, next) => {
     const [questions, attempts] = await Promise.all([
       pool.query("SELECT id, position, prompt, question_type AS type, options FROM quiz_questions WHERE quiz_id = $1 ORDER BY position", [quiz.id]),
       pool.query(
-        `SELECT a.id, a.score, a.total_scoreable, a.answers, a.created_at, u.id AS user_id, u.username, u.avatar
+        `SELECT a.id, a.score, a.total_scoreable, a.answers, a.created_at, u.id AS user_id, u.username, u.first_name, u.last_name, u.avatar, u.gender
          FROM attempts a JOIN users u ON u.id = a.user_id
          WHERE a.quiz_id = $1 AND a.is_practice = FALSE ORDER BY a.created_at DESC LIMIT 500`,
         [quiz.id]
@@ -338,7 +339,7 @@ router.post("/ai/questions", requireTestAuthor, aiLimiter, async (req, res, next
 router.get("/admin/users", requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.username, u.role, u.avatar, u.is_banned, u.warning_count, u.created_at, u.last_login_at,
+      `SELECT u.id, u.username, u.first_name, u.last_name, u.gender, u.role, u.avatar, u.is_banned, u.suspended_until, u.warning_count, u.created_at, u.last_login_at,
               (SELECT COUNT(*)::int FROM quizzes q WHERE q.owner_id = u.id) AS quiz_count,
               (SELECT COUNT(*)::int FROM attempts a WHERE a.user_id = u.id AND a.is_practice = FALSE) AS attempt_count
        FROM users u ORDER BY u.created_at DESC`
@@ -356,11 +357,50 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res, next) => {
     let query;
     if (action === "warn") query = "UPDATE users SET warning_count = warning_count + 1 WHERE id = $1";
     else if (action === "ban") query = "UPDATE users SET is_banned = TRUE WHERE id = $1";
-    else if (action === "unban") query = "UPDATE users SET is_banned = FALSE WHERE id = $1";
+    else if (action === "suspend") {
+      const days = Math.min(365, Math.max(1, Number.parseInt(req.body?.days, 10) || 7));
+      await pool.query("UPDATE users SET suspended_until = NOW() + ($2 * INTERVAL '1 day') WHERE id = $1", [req.params.id, days]);
+      return res.json({ ok: true });
+    }
+    else if (action === "role") {
+      const role = req.body?.role;
+      if (!["creator", "tester"].includes(role)) return res.status(400).json({ error: "Rol noto‘g‘ri." });
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("UPDATE users SET role = $2 WHERE id = $1", [req.params.id, role]);
+        await client.query("UPDATE group_members SET member_role = $2 WHERE user_id = $1", [req.params.id, role]);
+        await client.query("COMMIT");
+      } catch (error) { await client.query("ROLLBACK"); throw error; }
+      finally { client.release(); }
+      return res.json({ ok: true });
+    }
+    else if (action === "unban") query = "UPDATE users SET is_banned = FALSE, suspended_until = NULL WHERE id = $1";
     else return res.status(400).json({ error: "Admin amali noto‘g‘ri." });
     await pool.query(query, [req.params.id]);
     const result = await pool.query("SELECT id, username, role, is_banned, warning_count FROM users WHERE id = $1", [req.params.id]);
     res.json({ user: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+router.delete("/admin/users/:id", requireAdmin, async (req, res, next) => {
+  try {
+    const deleted = await pool.query("DELETE FROM users WHERE id = $1 AND role <> 'admin' RETURNING id", [req.params.id]);
+    if (!deleted.rowCount) return res.status(404).json({ error: "Hisob topilmadi yoki uni o‘chirish mumkin emas." });
+    res.status(204).end();
+  } catch (error) { next(error); }
+});
+
+router.delete("/quizzes/:id", async (req, res, next) => {
+  try {
+    const removed = await pool.query(
+      `DELETE FROM quizzes q WHERE q.id = $1 AND (
+        q.owner_id = $2 OR EXISTS (SELECT 1 FROM groups g WHERE g.id = q.group_id AND g.owner_id = $2 AND $3 = 'admin')
+      ) RETURNING q.id`,
+      [req.params.id, req.user.id, req.user.role]
+    );
+    if (!removed.rowCount) return res.status(404).json({ error: "Test topilmadi yoki o‘chirish huquqingiz yo‘q." });
+    res.status(204).end();
   } catch (error) { next(error); }
 });
 

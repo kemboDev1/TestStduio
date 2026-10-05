@@ -3,12 +3,17 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(32) NOT NULL,
+    first_name VARCHAR(60) NOT NULL DEFAULT '',
+    last_name VARCHAR(60) NOT NULL DEFAULT '',
+    gender VARCHAR(8) NOT NULL DEFAULT 'female' CHECK (gender IN ('male', 'female')),
     username_key VARCHAR(32) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role VARCHAR(16) NOT NULL DEFAULT 'tester',
     avatar TEXT NOT NULL DEFAULT '',
     theme VARCHAR(8) NOT NULL DEFAULT 'light' CHECK (theme IN ('light', 'dark')),
     language VARCHAR(2) NOT NULL DEFAULT 'uz' CHECK (language IN ('en', 'uz', 'ru')),
+    text_size VARCHAR(8) NOT NULL DEFAULT 'medium' CHECK (text_size IN ('small', 'medium', 'large')),
+    suspended_until TIMESTAMPTZ,
     is_banned BOOLEAN NOT NULL DEFAULT FALSE,
     warning_count INTEGER NOT NULL DEFAULT 0 CHECK (warning_count >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -23,6 +28,11 @@ ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('tester', 'cre
 ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(8) NOT NULL DEFAULT 'light';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(2) NOT NULL DEFAULT 'uz';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(60) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(60) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(8) NOT NULL DEFAULT 'female';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS text_size VARCHAR(8) NOT NULL DEFAULT 'medium';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS quizzes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

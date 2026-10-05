@@ -11,11 +11,11 @@ export async function requireUser(req, res, next) {
 
   try {
     const result = await pool.query(
-      "SELECT id, username, role, avatar, theme, language, is_banned FROM users WHERE id = $1",
+      "SELECT id, username, first_name, last_name, gender, role, avatar, theme, language, text_size, is_banned, suspended_until FROM users WHERE id = $1",
       [req.session.userId]
     );
     const user = result.rows[0];
-    if (!user || user.is_banned) {
+    if (!user || user.is_banned || (user.suspended_until && new Date(user.suspended_until) > new Date())) {
       req.session.destroy(() => {});
       return res.status(401).json({ error: "Hisob faol emas." });
     }
@@ -37,10 +37,14 @@ export function publicUser(user) {
   return {
     id: user.id,
     username: user.username,
+    firstName: user.first_name || "",
+    lastName: user.last_name || "",
+    gender: user.gender || "female",
     role: user.role,
     avatar: user.avatar,
     theme: user.theme || "light",
     language: user.language || "uz",
+    textSize: user.text_size || "medium",
     createdAt: user.created_at,
     lastLoginAt: user.last_login_at
   };
