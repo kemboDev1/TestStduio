@@ -43,6 +43,7 @@ function App() {
   const [memberForm, setMemberForm] = useState({ username: "", role: "tester" });
   const [settingsDraft, setSettingsDraft] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   const isAdmin = user?.role === "admin";
   const canCreate = ["admin", "creator"].includes(user?.role);
@@ -56,6 +57,16 @@ function App() {
     setNotice(message);
     window.clearTimeout(announce.timer);
     announce.timer = window.setTimeout(() => setNotice(""), 5000);
+  }
+
+  function askToConfirm({ title, message, confirmLabel = "Tasdiqlash", danger = false }) {
+    return new Promise(resolve => setConfirmDialog({ title, message, confirmLabel, danger, resolve }));
+  }
+
+  function resolveConfirm(answer) {
+    const dialog = confirmDialog;
+    setConfirmDialog(null);
+    dialog?.resolve(answer);
   }
 
   async function loadWorkspace() {
@@ -290,9 +301,9 @@ function App() {
 
   async function moderate(id, action, values = {}) {
     try {
-      if (action === "delete" && !window.confirm("Hisob butunlay o‘chirilsinmi? Bu amalni qaytarib bo‘lmaydi.")) return;
+      if (action === "delete" && !await askToConfirm({ title: "Hisobni o‘chirilsinmi?", message: "Hisob va unga tegishli guruhlar, testlar hamda javoblar butunlay o‘chadi. Bu amalni qaytarib bo‘lmaydi.", confirmLabel: "Hisobni o‘chirish", danger: true })) return;
       if (action === "deleteQuiz") {
-        if (!window.confirm("Test va uning javoblarini butunlay o‘chirasizmi?")) return;
+        if (!await askToConfirm({ title: "Testni o‘chirasizmi?", message: "Test va unga yuborilgan javoblar butunlay o‘chadi. Bu amalni qaytarib bo‘lmaydi.", confirmLabel: "Testni o‘chirish", danger: true })) return;
         await api(`/quizzes/${id}`, { method: "DELETE" });
         await loadWorkspace();
         announce("Test o‘chirildi.");
@@ -353,12 +364,13 @@ function App() {
           {page === "groups" && <GroupsPage user={user} groups={groups} selectedGroup={selectedGroup} selectedGroupId={selectedGroupId} setSelectedGroupId={setSelectedGroupId} members={groupMembers} groupForm={groupForm} setGroupForm={setGroupForm} onCreate={createGroup} onSave={saveGroup} memberForm={memberForm} setMemberForm={setMemberForm} onAddMember={addMember} onRemoveMember={removeMember} onJoin={joinGroup} onCopy={copyInvite} busy={busy} />}
           {page === "tests" && <TestsPage user={user} quizzes={visibleQuizzes} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onCreate={startBuilder} onOpen={openQuiz} onResults={openResults} onDelete={moderate} busy={busy} />}
           {page === "members" && <MembersPage users={adminUsers} groups={groups} onManageGroups={() => setPage("groups")} onModerate={moderate} />}
-          {page === "builder" && <BuilderPage draft={draft} setDraft={setDraft} groups={authorGroups} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} aiProvider={aiProvider} busy={busy} onAi={generateWithAi} onPublish={publishQuiz} onBack={() => setPage("tests")} updateQuestion={updateQuestion} />}
+          {page === "builder" && <BuilderPage user={user} draft={draft} setDraft={setDraft} groups={authorGroups} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} aiProvider={aiProvider} busy={busy} onAi={generateWithAi} onPublish={publishQuiz} onBack={() => setPage("tests")} onManageGroups={() => setPage("groups")} updateQuestion={updateQuestion} />}
           {page === "play" && selectedQuiz && <PlayPage data={selectedQuiz} answers={answers} setAnswers={setAnswers} attempt={attempt} busy={busy} onSubmit={submitAttempt} onBack={() => setPage("tests")} />}
           {page === "results" && results && <ResultsPage data={results} onBack={() => setPage("tests")} />}
           {page === "settings" && settingsDraft && <SettingsPage user={user} draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} busy={busy} />}
         </main>
       </div>
+      {confirmDialog && <ConfirmDialog dialog={confirmDialog} onResolve={resolveConfirm} />}
     </div>
   );
 }
@@ -374,6 +386,18 @@ function Avatar({ value, gender = "female", className = "avatar" }) {
 
 function SideNav({ active, icon, onClick, children }) {
   return <button className={`side-nav-button ${active ? "active" : ""}`} onClick={onClick}>{icon}<span>{children}</span>{active && <span className="nav-indicator" />}</button>;
+}
+
+function ConfirmDialog({ dialog, onResolve }) {
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (event.key === "Escape") onResolve(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onResolve]);
+
+  return <div className="site-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onResolve(false); }}><section className="site-dialog" role="alertdialog" aria-modal="true" aria-labelledby="site-dialog-title" aria-describedby="site-dialog-message"><span className={`site-dialog-mark ${dialog.danger ? "danger" : ""}`}><ShieldCheck size={21} /></span><h2 id="site-dialog-title">{dialog.title}</h2><p id="site-dialog-message">{dialog.message}</p><div className="site-dialog-actions"><button type="button" className="button button-outline" onClick={() => onResolve(false)}>Bekor qilish</button><button type="button" autoFocus className={`button ${dialog.danger ? "button-danger" : "button-primary"}`} onClick={() => onResolve(true)}>{dialog.confirmLabel}</button></div></section></div>;
 }
 
 function AuthScreen({ mode, setMode, form, setForm, onSubmit, busy, notice }) {
@@ -473,7 +497,7 @@ function MembersPage({ users, groups, onManageGroups, onModerate }) {
   </div>;
 }
 
-function BuilderPage({ draft, setDraft, groups, aiTopic, setAiTopic, aiCount, setAiCount, aiProvider, busy, onAi, onPublish, onBack, updateQuestion }) {
+function BuilderPage({ user, draft, setDraft, groups, aiTopic, setAiTopic, aiCount, setAiCount, aiProvider, busy, onAi, onPublish, onBack, onManageGroups, updateQuestion }) {
   function changeType(index, type) {
     updateQuestion(index, { type, options: type === "scale" ? ["Hech qachon", "Kamdan-kam", "Ba'zan", "Ko'pincha", "Deyarli har doim"] : type === "multiple" ? ["", "", "", ""] : [], correctOptionIndex: null });
   }
@@ -482,6 +506,7 @@ function BuilderPage({ draft, setDraft, groups, aiTopic, setAiTopic, aiCount, se
     updateQuestion(questionIndex, { options: question.options.map((option, index) => index === optionIndex ? value : option) });
   }
   return <div className="page-stack"><button className="back-link" onClick={onBack}><ArrowLeft size={15} />Testlarga qaytish</button><PageHeading eyebrow="TEST MUHARRIRI" title="Mulohaza testi yarating" subtitle="Savollarni o‘zingiz tuzing yoki AI yordamida boshlang. Test faqat tanlangan guruhda ko‘rinadi." />
+    {!groups.length && <section className="builder-empty-group" role="status"><span className="builder-empty-icon"><Users size={21} /></span><div><strong>Test yaratish uchun avval guruh kerak</strong><p>{user.role === "admin" ? "Guruhlar bo‘limida guruh oching. Keyin testni shu yerda yaratib, guruhga joylaysiz." : "Admin sizni Creator sifatida guruhga qo‘shgach, test tuza olasiz."}</p></div>{user.role === "admin" && <button type="button" className="button button-outline" onClick={onManageGroups}>Guruh yaratish<ArrowRight size={15} /></button>}</section>}
     <div className="builder-layout"><form className="surface-card builder-form" onSubmit={onPublish}><label>Guruh<select required value={draft.groupId} onChange={event => setDraft({ ...draft, groupId: event.target.value })}><option value="">Guruhni tanlang</option>{groups.map(group => <option value={group.id} key={group.id}>{group.name}</option>)}</select></label><label>Test nomi<input required minLength="2" maxLength="120" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} placeholder="Masalan, Haftalik holat" /></label><label>Qisqa izoh<textarea rows="2" maxLength="600" value={draft.description} onChange={event => setDraft({ ...draft, description: event.target.value })} placeholder="Mijozlarga testning maqsadini tushuntiring" /></label>
       <div className="editor-heading"><div><span className="eyebrow">SAVOLLAR</span><strong>{draft.questions.length} ta savol</strong></div><button type="button" className="button button-outline" onClick={() => setDraft({ ...draft, questions: [...draft.questions, { type: "scale", prompt: "", options: ["Hech qachon", "Kamdan-kam", "Ba'zan", "Ko'pincha", "Deyarli har doim"], correctOptionIndex: null }] })}><Plus size={15} />Savol qo‘shish</button></div>
       <div className="question-stack">{draft.questions.map((question, index) => <article className="editor-question" key={index}><div className="editor-question-top"><span>SAVOL {String(index + 1).padStart(2, "0")}</span><select aria-label="Savol turi" value={question.type} onChange={event => changeType(index, event.target.value)}><option value="scale">Shkala — mulohaza</option><option value="text">Ochiq javob</option><option value="multiple">Bitta to‘g‘ri javob</option></select></div><textarea required maxLength="600" rows="2" value={question.prompt} onChange={event => updateQuestion(index, { prompt: event.target.value })} placeholder="Savolni yozing…" />

@@ -79,7 +79,14 @@ const phrases = {
   "PSIXOLOG AMALIYOTI UCHUN": ["FOR PSYCHOLOGY PRACTICES", "ДЛЯ ПСИХОЛОГИЧЕСКОЙ ПРАКТИКИ"], "Tinglang": ["Listen", "Слушайте"], "Anglang": ["Understand", "Понимайте"], "Birga o‘sing": ["Grow together", "Растите вместе"],
   "Yangi foydalanuvchimisiz? Hisob yarating": ["New here? Create an account", "Впервые здесь? Создайте аккаунт"], "Hisobingiz bormi? Kirish": ["Already have an account? Sign in", "Уже есть аккаунт? Войдите"], "Kamida 8 ta belgi": ["At least 8 characters", "Не менее 8 символов"],
   "Javoblaringiz shaxsiy. Ularni faqat guruhingizdagi mutaxassis ko‘ra oladi.": ["Your responses are private and visible only to your group’s specialist.", "Ваши ответы доступны только специалисту вашей группы."], "Guruh kodi": ["Group code", "Код группы"],
-  "Profil rasmingiz va ko‘rinish mavzusini sozlang.": ["Choose your profile avatar and theme.", "Настройте аватар и цветовую тему."], "O‘zingizga qulay rang mavzusini tanlang.": ["Choose a comfortable color theme.", "Выберите удобную цветовую тему."]
+  "Profil rasmingiz va ko‘rinish mavzusini sozlang.": ["Choose your profile avatar and theme.", "Настройте аватар и цветовую тему."], "O‘zingizga qulay rang mavzusini tanlang.": ["Choose a comfortable color theme.", "Выберите удобную цветовую тему."],
+  "Hisobni o‘chirilsinmi?": ["Delete this account?", "Удалить аккаунт?"], "Hisob va unga tegishli guruhlar, testlar hamda javoblar butunlay o‘chadi. Bu amalni qaytarib bo‘lmaydi.": ["This permanently deletes the account, its groups, tests, and responses. This cannot be undone.", "Аккаунт, группы, тесты и ответы будут удалены навсегда. Это нельзя отменить."],
+  "Hisobni o‘chirish": ["Delete account", "Удалить аккаунт"], "Testni o‘chirasizmi?": ["Delete this test?", "Удалить тест?"], "Test va unga yuborilgan javoblar butunlay o‘chadi. Bu amalni qaytarib bo‘lmaydi.": ["This permanently deletes the test and all its responses. This cannot be undone.", "Тест и все ответы будут удалены навсегда. Это нельзя отменить."],
+  "Testni o‘chirish": ["Delete test", "Удалить тест"], "Bekor qilish": ["Cancel", "Отмена"], "Tasdiqlash": ["Confirm", "Подтвердить"],
+  "Test yaratish uchun avval guruh kerak": ["Create a group before making a test", "Сначала создайте группу для теста"],
+  "Guruhlar bo‘limida guruh oching. Keyin testni shu yerda yaratib, guruhga joylaysiz.": ["Create a group in the Groups section. Then return here to create and publish your test.", "Создайте группу в разделе «Группы», затем вернитесь сюда, чтобы подготовить тест."],
+  "Admin sizni Creator sifatida guruhga qo‘shgach, test tuza olasiz.": ["An admin must add you to a group as a Creator before you can create tests.", "Администратор должен добавить вас в группу с ролью автора тестов."],
+  "Guruh yaratish": ["Create a group", "Создать группу"]
 };
 const textOriginals = new WeakMap();
 const attrOriginals = new WeakMap();
