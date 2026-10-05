@@ -99,7 +99,11 @@ export async function generateQuestions(topic, count) {
   });
 
   if (!response.ok) {
-    throw new Error(`AI xizmati xato qaytardi (${response.status}).`);
+    const errorPayload = await response.json().catch(() => ({}));
+    const providerMessage = typeof errorPayload.error?.message === "string"
+      ? errorPayload.error.message.replaceAll(apiKey, "[redacted]").slice(0, 400)
+      : "";
+    throw new Error(`AI xizmati xato qaytardi (${response.status})${providerMessage ? `: ${providerMessage}` : ""}.`);
   }
   const payload = await response.json();
   const content = payload.choices?.[0]?.message?.content;
