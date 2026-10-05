@@ -272,7 +272,7 @@ router.get("/leaderboard", async (_req, res, next) => {
 });
 
 router.post("/ai/questions", aiLimiter, async (req, res, next) => {
-  const topic = cleanString(req.body.topic, 120);
+  const topic = cleanString(req.body.topic, 500);
   const count = Math.max(2, Math.min(10, Number.parseInt(req.body.count, 10) || 5));
   if (topic.length < 2) return res.status(400).json({ error: "AI uchun mavzuni kiriting." });
   try {

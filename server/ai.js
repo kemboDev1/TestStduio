@@ -39,25 +39,38 @@ function fallbackQuestions(topic, count) {
   });
 }
 
-function validateQuestions(value, count) {
-  if (!Array.isArray(value) || value.length !== count) {
+function validateQuiz(value, count, topic) {
+  if (!value || !Array.isArray(value.questions) || value.questions.length !== count) {
     throw new Error("AI kutilgan sondagi savollarni qaytarmadi.");
   }
-  return value.map((item, index) => {
+  const title = String(value.title || `${topic} bo'yicha test`).trim().slice(0, 120);
+  const description = String(value.description || `${topic} mavzusidagi bilimlarni sinab ko'ring.`).trim().slice(0, 600);
+  const questions = value.questions.map((item, index) => {
     const prompt = String(item.prompt || "").trim().slice(0, 600);
-    const options = Array.isArray(item.options) ? item.options.map(option => String(option).trim().slice(0, 300)) : [];
-    const correctOptionIndex = Number(item.correctOptionIndex);
-    if (!prompt || options.length < 2 || options.length > 6 || !Number.isInteger(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex >= options.length) {
+    const type = item.type;
+    if (!prompt || !["multiple", "text"].includes(type)) {
       throw new Error(`AI qaytargan ${index + 1}-savol yaroqsiz.`);
     }
-    return { prompt, type: "multiple", options, correctOptionIndex };
+    if (type === "text") return { prompt, type, options: [], correctOptionIndex: null };
+    const options = Array.isArray(item.options) ? item.options.map(option => String(option).trim().slice(0, 300)) : [];
+    const correctOptionIndex = Number(item.correctOptionIndex);
+    if (options.length < 2 || options.length > 6 || !Number.isInteger(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex >= options.length) {
+      throw new Error(`AI qaytargan ${index + 1}-savol yaroqsiz.`);
+    }
+    return { prompt, type, options, correctOptionIndex };
   });
+  return { title, description, questions };
 }
 
 export async function generateQuestions(topic, count) {
   const apiKey = process.env.AI_API_KEY;
   if (!apiKey) {
-    return { provider: "offline", questions: fallbackQuestions(topic, count) };
+    return {
+      provider: "offline",
+      title: `${topic} bo'yicha test`.slice(0, 120),
+      description: `${topic} mavzusidagi bilimlarni sinab ko'ring.`.slice(0, 600),
+      questions: fallbackQuestions(topic, count)
+    };
   }
 
   const baseUrl = (process.env.AI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
@@ -75,11 +88,11 @@ export async function generateQuestions(topic, count) {
       messages: [
         {
           role: "system",
-          content: "Create original, accurate quiz questions in Uzbek. Return only JSON: {\"questions\":[{\"prompt\":string,\"options\":string[],\"correctOptionIndex\":number}]}. Each question needs 4 distinct options and one verifiably correct answer. Vary question forms and avoid repeating ideas."
+          content: "You create accurate, engaging quizzes in Uzbek from the user's topic or instructions. Return only JSON with this shape: {\"title\":string,\"description\":string,\"questions\":[{\"prompt\":string,\"type\":\"multiple\",\"options\":string[],\"correctOptionIndex\":number} or {\"prompt\":string,\"type\":\"text\",\"options\":[],\"correctOptionIndex\":null}]}. Write a relevant, concise title and description. Choose the most suitable type for each question: use multiple for objective questions with one verifiably correct answer; use text for explanation, reflection, or open-ended questions. Include both types when appropriate. Multiple-choice questions need 4 distinct options and a correctOptionIndex. Never invent facts, repeat ideas, or include an answer key for text questions."
         },
         {
           role: "user",
-          content: `Mavzu: ${topic}\nSavollar soni: ${count}\nQiziqarli, aniq va yoshga mos savollar tuz.`
+          content: `Foydalanuvchi so'rovi: ${topic}\nSavollar soni: aynan ${count}\nSavollarni shu so'rovga mos, aniq va o'zaro takrorlanmaydigan qilib tuz.`
         }
       ]
     })
@@ -92,5 +105,5 @@ export async function generateQuestions(topic, count) {
   const content = payload.choices?.[0]?.message?.content;
   if (!content) throw new Error("AI javobi bo'sh.");
   const parsed = JSON.parse(content);
-  return { provider: "ai", questions: validateQuestions(parsed.questions, count) };
+  return { provider: "ai", ...validateQuiz(parsed, count, topic) };
 }

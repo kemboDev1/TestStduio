@@ -112,8 +112,8 @@ function App() {
       });
       setDraft(current => ({
         ...current,
-        title: current.title || `${aiTopic} testi`,
-        description: current.description || `${aiTopic} mavzusida yangi test.`,
+        title: current.title || payload.title,
+        description: current.description || payload.description,
         questions: payload.questions.map(question => ({
           type: question.type,
           prompt: question.prompt,
@@ -334,7 +334,7 @@ function BuilderView({ draft, setDraft, updateQuestion, onPublish, busy, aiTopic
         <aside className="ai-panel">
           <div className="ai-panel-top"><span className="ai-icon"><WandSparkles size={19} /></span><span className="ai-status"><span /> STUDIO AI</span></div>
           <h2>Skip the blank page.</h2><p>Give the assistant a topic. It will draft varied questions and answer choices for you to edit.</p>
-          <label>What's the topic?<input value={aiTopic} onChange={event => setAiTopic(event.target.value)} maxLength="120" placeholder="e.g. space, family stories" /></label>
+          <label>Describe your quiz topic<input value={aiTopic} onChange={event => setAiTopic(event.target.value)} maxLength="500" placeholder="e.g. Oila haqida: mehr, qadriyatlar va muloqot" /></label>
           <label>Questions<select value={aiCount} onChange={event => setAiCount(event.target.value)}>{[3, 5, 7, 10].map(count => <option key={count} value={count}>{count} questions</option>)}</select></label>
           <button className="button button-acid full-button" onClick={onAi} disabled={busy || aiTopic.trim().length < 2}><Sparkles size={16} /> {busy ? "Thinking..." : "Generate questions"}</button>
           {aiProvider && <p className="provider-note">{aiProvider === "ai" ? "Generated with your configured AI provider." : "Offline starter set. Add AI_API_KEY in .env for generative questions."}</p>}
