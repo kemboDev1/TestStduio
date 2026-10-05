@@ -1,48 +1,45 @@
 # TestStudio
 
-Shared quiz studio with a React (Vite) client, an Express API and PostgreSQL storage.
-Users create tests (optionally with AI-generated questions), take each other's tests,
-leave feedback and manage their own settings.
+Psixolog amaliyoti uchun shaxsiy, guruhlar asosida ishlaydigan test va mijozlar javoblarini boshqarish platformasi. React/Vite interfeysi, Express API va PostgreSQL bazasidan foydalanadi.
 
-## Features
+## Imkoniyatlar
 
-- Accounts with hashed passwords and admin moderation (warn / ban / unban).
-- AI question generator (any OpenAI-compatible provider; offline fallback when no key is set).
-- Privacy: a user's result is returned only to that user. The leaderboard shows the number
-  of different tests each user has answered, never scores.
-- Test owners can take their own test as private practice. It is stored as `is_practice`,
-  so it never changes the leaderboard.
-- Settings page (saved to the account): dark / light theme, interface language
-  (O'zbekcha / Русский / English) and a profile photo (resized in the browser, max ~150 KB).
+- Psixolog Admin sifatida guruhlar ochadi, nomlaydi va mijozlarga taklif kodi yuboradi.
+- Admin ro‘yxatdan o‘tgan foydalanuvchini guruhga Tester yoki test tuzuvchi Creator sifatida qo‘shadi.
+- Creator faqat o‘ziga biriktirilgan guruhlar uchun test tuzadi va AI yordamida mulohaza savollari tayyorlaydi.
+- Tester taklif kodi bilan guruhga kirib, o‘z guruhidagi testlarni topshiradi.
+- Javoblar boshqa mijozlarga ko‘rinmaydi. Guruh Admini va biriktirilgan Creator mijoz javoblarini ko‘ra oladi.
+- Shkala va ochiq javob savollari o‘zini anglashga yordam beradi; AI tashxis qo‘ymaydi.
+- Umumiy reyting jadvali yoki hamma uchun ochiq testlar yo‘q.
+- Parollar bcrypt bilan himoyalanadi; profil rasmi, och/tungi mavzu va admin moderation boshqaruvi mavjud.
 
-## Local setup
+## Lokal ishga tushirish
 
-1. Create a PostgreSQL database and user.
-2. Copy `.env.example` to `.env` and fill in `DATABASE_URL`, a random `SESSION_SECRET`
-   (at least 32 characters) and, optionally, `AI_API_KEY`. Never commit `.env`.
-3. Install dependencies and create/upgrade the schema (safe to re-run on an existing database):
+1. PostgreSQL baza yarating.
+2. Ishga tushirish muhiti uchun `DATABASE_URL` va kamida 32 belgili `SESSION_SECRET` belgilang. `.env` faylini GitHub’ga yuklamang.
+3. Paketlarni o‘rnating va bazani sozlang:
 
    ```powershell
    npm install
    npm run db:setup
    ```
 
-4. Start the API and the Vite dev server:
+4. Lokal API va Vite serverini yoqing:
 
    ```powershell
    npm run dev
    ```
 
-   Open http://localhost:5173.
-
-5. Register your account, then promote it to admin:
+5. Birinchi hisobni yarating va uni Admin qiling:
 
    ```powershell
-   npm run admin:promote -- your_username
+   npm run admin:promote -- foydalanuvchi_ismi
    ```
 
-## Production
+## Render va Vercel
 
-Build the frontend with `npm run build`, then `npm start`. Set `NODE_ENV=production`,
-`CLIENT_ORIGIN` and `PGSSL=true` if your provider requires TLS. `vercel.json` proxies
-`/api` to the Render backend.
+- Render backend uchun `DATABASE_URL` va kamida 32 belgili `SESSION_SECRET` majburiy. Ilova ishga tushganda jadvallarga xavfsiz, takroran bajarish mumkin bo‘lgan yangilanishlarni qo‘llaydi.
+- Vercel frontend `/api/*` so‘rovlarini Render’dagi backendga yo‘naltiradi (`vercel.json`).
+- `NODE_ENV=production` Render’da ishlatiladi. `PGSSL=true` faqat PostgreSQL provayderi TLS talab qilsa qo‘shiladi. Render `PORT` qiymatini o‘zi beradi.
+- `AI_API_KEY` generativ AI uchun ixtiyoriy. Ulanmaganida mulohaza shkala savollarining offline boshlang‘ich varianti ishlaydi. Mos OpenAI-compatible provayder kerak bo‘lsa, `AI_BASE_URL` va `AI_MODEL` ham ixtiyoriy.
+- Deploydan keyin birinchi Admin foydalanuvchisini `npm run admin:promote -- foydalanuvchi_ismi` orqali belgilang.

@@ -1,5 +1,9 @@
 import { pool } from "./db.js";
 
+export function cleanString(value, maxLength = 1200) {
+  return String(value ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim().slice(0, maxLength);
+}
+
 export async function requireUser(req, res, next) {
   if (!req.session.userId) {
     return res.status(401).json({ error: "Kirish talab qilinadi." });
@@ -36,8 +40,15 @@ export function publicUser(user) {
     role: user.role,
     avatar: user.avatar,
     theme: user.theme || "light",
-    language: user.language || "en",
+    language: user.language || "uz",
     createdAt: user.created_at,
     lastLoginAt: user.last_login_at
   };
+}
+
+export function requireTestAuthor(req, res, next) {
+  if (!["admin", "creator"].includes(req.user?.role)) {
+    return res.status(403).json({ error: "Test tuzish uchun Creator roli kerak." });
+  }
+  next();
 }

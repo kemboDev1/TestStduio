@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { readFile } from "node:fs/promises";
 import express from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -7,7 +8,11 @@ import rateLimit from "express-rate-limit";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pool } from "./db.js";
-import api from "./api.js";
+import api from "./clinic-api.js";
+import accountApi from "./account-api.js";
+
+const schema = await readFile(new URL("./db/schema.sql", import.meta.url), "utf8");
+await pool.query(schema);
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -47,6 +52,7 @@ app.use("/api", (req, res, next) => {
   }
   next();
 });
+app.use("/api/auth", accountApi);
 app.use("/api", api);
 app.use("/api", (_req, res) => res.status(404).json({ error: "API route topilmadi." }));
 

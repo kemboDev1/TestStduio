@@ -5,19 +5,24 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(32) NOT NULL,
     username_key VARCHAR(32) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role VARCHAR(16) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    role VARCHAR(16) NOT NULL DEFAULT 'tester',
     avatar TEXT NOT NULL DEFAULT '',
     theme VARCHAR(8) NOT NULL DEFAULT 'light' CHECK (theme IN ('light', 'dark')),
-    language VARCHAR(2) NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'uz', 'ru')),
+    language VARCHAR(2) NOT NULL DEFAULT 'uz' CHECK (language IN ('en', 'uz', 'ru')),
     is_banned BOOLEAN NOT NULL DEFAULT FALSE,
     warning_count INTEGER NOT NULL DEFAULT 0 CHECK (warning_count >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_login_at TIMESTAMPTZ
 );
 
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+UPDATE users SET role = 'tester' WHERE role = 'user';
+ALTER TABLE users ALTER COLUMN role SET DEFAULT 'tester';
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('tester', 'creator', 'admin'));
+
 ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(8) NOT NULL DEFAULT 'light';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(2) NOT NULL DEFAULT 'en';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(2) NOT NULL DEFAULT 'uz';
 
 CREATE TABLE IF NOT EXISTS quizzes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -32,17 +37,45 @@ CREATE TABLE IF NOT EXISTS quizzes (
 CREATE INDEX IF NOT EXISTS quizzes_public_created_idx ON quizzes (is_public, created_at DESC);
 CREATE INDEX IF NOT EXISTS quizzes_owner_idx ON quizzes (owner_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500) NOT NULL DEFAULT '',
+    invite_code VARCHAR(32) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS groups_owner_idx ON groups (owner_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS group_members (
+    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    member_role VARCHAR(16) NOT NULL DEFAULT 'tester' CHECK (member_role IN ('creator', 'tester')),
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (group_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS group_members_user_idx ON group_members (user_id, joined_at DESC);
+
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES groups(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS quizzes_group_idx ON quizzes (group_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS quiz_questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
     position INTEGER NOT NULL CHECK (position >= 0),
-    question_type VARCHAR(16) NOT NULL CHECK (question_type IN ('multiple', 'text')),
+    question_type VARCHAR(16) NOT NULL CHECK (question_type IN ('multiple', 'text', 'scale')),
     prompt VARCHAR(600) NOT NULL,
     options JSONB NOT NULL DEFAULT '[]'::jsonb,
     correct_option_index INTEGER,
     UNIQUE (quiz_id, position),
     CHECK (jsonb_typeof(options) = 'array')
 );
+
+ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_question_type_check;
+ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_question_type_check CHECK (question_type IN ('multiple', 'text', 'scale'));
 
 CREATE TABLE IF NOT EXISTS attempts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

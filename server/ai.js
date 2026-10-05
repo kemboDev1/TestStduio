@@ -1,21 +1,17 @@
 const offlinePrompts = [
-  "{topic} bo'yicha eng muhim tushuncha qaysi?",
-  "{topic} haqidagi da'voni tekshirishda qaysi dalil ishonchliroq?",
-  "{topic}ni kundalik hayotda qo'llashga qaysi misol mos keladi?",
-  "{topic} bo'yicha xato javobni tuzatish uchun nima qilish kerak?",
-  "{topic} mavzusida ikki fikr farq qilsa, qaysi qadam foydali?",
-  "{topic}ni tushunganingni ko'rsatish uchun nimani izohlash kerak?",
-  "{topic}ni eslab qolish uchun qaysi o'rganish usuli samarali?",
-  "{topic}ga doir yangi ma'lumotni baholashda nimaga qaraladi?",
-  "{topic} bo'yicha kichik loyiha nimadan boshlanishi mumkin?",
-  "{topic}ni boshqalarga tushuntirishda qaysi yondashuv aniqroq?"
+  "So'nggi paytda {topic} hayotingizga qanchalik ta'sir qildi?",
+  "{topic} bilan bog'liq vaziyatda o'zingizni qanchalik xotirjam his qilasiz?",
+  "{topic} yuzasidan o'z fikringizni yaqinlaringizga aytish sizga qanchalik oson?",
+  "{topic} bo'yicha yordam yoki qo'llab-quvvatlash so'rash sizga qanchalik qulay?",
+  "{topic}ni boshqarishda o'zingizdagi ijobiy o'zgarishlarni qanchalik sezyapsiz?",
+  "{topic} bilan bog'liq qiyin paytlardan keyin o'zingizni tiklash uchun qancha vaqt kerak bo'ladi?",
+  "{topic} haqida muloyim va hukmsiz suhbatlashish siz uchun qanchalik muhim?",
+  "Bugun {topic} haqida gaplashishga qanchalik tayyormiz?",
+  "{topic} bilan bog'liq kichik bir qadam tashlashni qanchalik uddalay olasiz?",
+  "{topic} yuzasidan o'zingizni tushunilgan va eshitilgan deb qanchalik his qilasiz?"
 ];
 
-const sampleOptions = [
-  ["Dalilni tekshirib, sababini tushuntirish", "Faqat sarlavhaga qarab xulosa qilish", "Manbani tekshirmasdan ulashish", "Birinchi taxminni to'g'ri deb olish"],
-  ["Ishonchli manbalarni solishtirish", "Eng ko'p tarqalgan xabarni tanlash", "Qarshi dalillarni e'tiborsiz qoldirish", "Tasodifiy javob belgilash"],
-  ["Aniq misol keltirib, natijani tekshirish", "Faqat atamani yoddan aytish", "Savolni boshqa mavzuga burish", "Hech qanday misol bermaslik"]
-];
+const scaleOptions = ["Hech qachon", "Kamdan-kam", "Ba'zan", "Ko'pincha", "Deyarli har doim"];
 
 function shuffle(items) {
   const result = [...items];
@@ -27,16 +23,12 @@ function shuffle(items) {
 }
 
 function fallbackQuestions(topic, count) {
-  const prompts = shuffle(offlinePrompts).slice(0, count);
-  return prompts.map((template, index) => {
-    const options = shuffle(sampleOptions[index % sampleOptions.length].map((text, optionIndex) => ({ text, optionIndex })));
-    return {
-      prompt: template.replaceAll("{topic}", topic),
-      type: "multiple",
-      options: options.map(option => option.text),
-      correctOptionIndex: options.findIndex(option => option.optionIndex === 0)
-    };
-  });
+  return shuffle(offlinePrompts).slice(0, count).map(template => ({
+    prompt: template.replaceAll("{topic}", topic),
+    type: "scale",
+    options: scaleOptions,
+    correctOptionIndex: null
+  }));
 }
 
 function validateQuiz(value, count, topic) {
@@ -48,16 +40,16 @@ function validateQuiz(value, count, topic) {
   const questions = value.questions.map((item, index) => {
     const prompt = String(item.prompt || "").trim().slice(0, 600);
     const type = item.type;
-    if (!prompt || !["multiple", "text"].includes(type)) {
+    if (!prompt || !["multiple", "text", "scale"].includes(type)) {
       throw new Error(`AI qaytargan ${index + 1}-savol yaroqsiz.`);
     }
     if (type === "text") return { prompt, type, options: [], correctOptionIndex: null };
     const options = Array.isArray(item.options) ? item.options.map(option => String(option).trim().slice(0, 300)) : [];
     const correctOptionIndex = Number(item.correctOptionIndex);
-    if (options.length < 2 || options.length > 6 || !Number.isInteger(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex >= options.length) {
+    if (options.length < 2 || options.length > 8 || (type === "multiple" && (!Number.isInteger(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex >= options.length))) {
       throw new Error(`AI qaytargan ${index + 1}-savol yaroqsiz.`);
     }
-    return { prompt, type, options, correctOptionIndex };
+    return { prompt, type, options, correctOptionIndex: type === "scale" ? null : correctOptionIndex };
   });
   return { title, description, questions };
 }
@@ -88,7 +80,7 @@ export async function generateQuestions(topic, count) {
       messages: [
         {
           role: "system",
-          content: "You create accurate, engaging quizzes in Uzbek from the user's topic or instructions. Return only JSON with this shape: {\"title\":string,\"description\":string,\"questions\":[{\"prompt\":string,\"type\":\"multiple\",\"options\":string[],\"correctOptionIndex\":number} or {\"prompt\":string,\"type\":\"text\",\"options\":[],\"correctOptionIndex\":null}]}. Write a relevant, concise title and description. Choose the most suitable type for each question: use multiple for objective questions with one verifiably correct answer; use text for explanation, reflection, or open-ended questions. Include both types when appropriate. Multiple-choice questions need 4 distinct options and a correctOptionIndex. Never invent facts, repeat ideas, or include an answer key for text questions."
+          content: "You create clear, gentle self-reflection questionnaires in Uzbek for a psychologist's client groups. Return only JSON with this shape: {\"title\":string,\"description\":string,\"questions\":[{\"prompt\":string,\"type\":\"scale\",\"options\":string[],\"correctOptionIndex\":null} or {\"prompt\":string,\"type\":\"text\",\"options\":[],\"correctOptionIndex\":null} or {\"prompt\":string,\"type\":\"multiple\",\"options\":string[],\"correctOptionIndex\":number}]}. Prefer scale questions for frequency, intensity, or current experience; use a consistent 4–5 point scale with neutral, non-judgmental wording. Use open text for optional reflection. Use multiple choice only for short psychoeducation with one clearly verifiable answer. Avoid diagnosing, scoring mental health, promising treatment, or asking for trauma details. Never imply a response means a disorder. Return exactly the requested number of distinct questions, and keep the title and description concise."
         },
         {
           role: "user",
