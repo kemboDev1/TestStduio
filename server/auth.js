@@ -7,7 +7,7 @@ export async function requireUser(req, res, next) {
 
   try {
     const result = await pool.query(
-      "SELECT id, username, role, avatar, is_banned FROM users WHERE id = $1",
+      "SELECT id, username, role, avatar, theme, language, is_banned FROM users WHERE id = $1",
       [req.session.userId]
     );
     const user = result.rows[0];
@@ -35,6 +35,8 @@ export function publicUser(user) {
     username: user.username,
     role: user.role,
     avatar: user.avatar,
+    theme: user.theme || "light",
+    language: user.language || "en",
     createdAt: user.created_at,
     lastLoginAt: user.last_login_at
   };

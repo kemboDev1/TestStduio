@@ -22,7 +22,7 @@ router.get("/health", async (_req, res, next) => {
 router.get("/auth/me", async (req, res, next) => {
   if (!req.session.userId) return res.json({ user: null });
   try {
-    const result = await pool.query("SELECT id, username, role, avatar, created_at, last_login_at, is_banned FROM users WHERE id = $1", [req.session.userId]);
+    const result = await pool.query("SELECT id, username, role, avatar, theme, language, created_at, last_login_at, is_banned FROM users WHERE id = $1", [req.session.userId]);
     const user = result.rows[0];
     if (!user || user.is_banned) {
       req.session.destroy(() => {});
@@ -50,7 +50,7 @@ router.post("/auth/register", authLimiter, async (req, res, next) => {
     const result = await pool.query(
       `INSERT INTO users (username, username_key, password_hash, avatar, last_login_at)
        VALUES ($1, $2, $3, $4, NOW())
-       RETURNING id, username, role, avatar, created_at, last_login_at`,
+      RETURNING id, username, role, avatar, theme, language, created_at, last_login_at`,
       [username, usernameKey, passwordHash, username.charAt(0).toLocaleUpperCase()]
     );
     const user = result.rows[0];
@@ -91,6 +91,26 @@ router.post("/auth/logout", (req, res, next) => {
 });
 
 router.use(requireUser);
+
+router.patch("/auth/settings", async (req, res, next) => {
+  const { theme, language, avatar } = req.body;
+  if (!new Set(["light", "dark"]).has(theme)) return res.status(400).json({ error: "Mavzuni tanlang." });
+  if (!new Set(["en", "uz", "ru"]).has(language)) return res.status(400).json({ error: "Tilni tanlang." });
+  const isPhoto = typeof avatar === "string" && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar);
+  const isInitial = typeof avatar === "string" && /^[\p{L}\p{N}]{1,16}$/u.test(avatar);
+  if (typeof avatar !== "string" || avatar.length > 200_000 || (avatar && !isPhoto && !isInitial)) {
+    return res.status(400).json({ error: "Rasm JPG, PNG yoki WebP bo'lsin va hajmi 150 KB dan oshmasin." });
+  }
+  try {
+    const result = await pool.query(
+      "UPDATE users SET theme = $2, language = $3, avatar = $4 WHERE id = $1 RETURNING id, username, role, avatar, theme, language, created_at, last_login_at",
+      [req.user.id, theme, language, avatar]
+    );
+    res.json({ user: publicUser(result.rows[0]) });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/quizzes", async (req, res, next) => {
   try {
@@ -189,8 +209,9 @@ router.get("/quizzes/:id", async (req, res, next) => {
 router.post("/quizzes/:id/attempts", async (req, res, next) => {
   const submitted = Array.isArray(req.body.answers) ? req.body.answers : [];
   try {
-    const quizResult = await pool.query("SELECT id FROM quizzes WHERE id = $1 AND is_public = TRUE", [req.params.id]);
+    const quizResult = await pool.query("SELECT id, owner_id FROM quizzes WHERE id = $1 AND (is_public = TRUE OR owner_id = $2)", [req.params.id, req.user.id]);
     if (!quizResult.rowCount) return res.status(404).json({ error: "Ochiq test topilmadi." });
+    const isPractice = quizResult.rows[0].owner_id === req.user.id;
     const questions = await pool.query(
       "SELECT id, prompt, question_type, options, correct_option_index FROM quiz_questions WHERE quiz_id = $1 ORDER BY position",
       [req.params.id]
@@ -210,10 +231,10 @@ router.post("/quizzes/:id/attempts", async (req, res, next) => {
       return { questionId: question.id, selectedOptionIndex: Number.isInteger(selected) ? selected : null, correct };
     });
     const result = await pool.query(
-      `INSERT INTO attempts (quiz_id, user_id, score, total_scoreable, answers)
-       VALUES ($1, $2, $3, $4, $5::jsonb)
-       RETURNING id, score, total_scoreable, created_at`,
-      [req.params.id, req.user.id, score, total, JSON.stringify(answerRecords)]
+      `INSERT INTO attempts (quiz_id, user_id, score, total_scoreable, is_practice, answers)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+      RETURNING id, score, total_scoreable, is_practice, created_at`,
+      [req.params.id, req.user.id, score, total, isPractice, JSON.stringify(answerRecords)]
     );
     res.status(201).json({ attempt: result.rows[0], answers: answerRecords });
   } catch (error) {
@@ -258,12 +279,10 @@ router.post("/quizzes/:id/comments", async (req, res, next) => {
 router.get("/leaderboard", async (_req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.username, u.avatar, COUNT(a.id)::int AS plays,
-              COALESCE(MAX(a.score), 0)::int AS best_score,
-              COALESCE(SUM(a.score), 0)::int AS total_score
-       FROM users u LEFT JOIN attempts a ON a.user_id = u.id
+      `SELECT u.id, u.username, u.avatar, COUNT(a.id)::int AS plays
+       FROM users u LEFT JOIN attempts a ON a.user_id = u.id AND a.is_practice = FALSE
        WHERE u.is_banned = FALSE
-       GROUP BY u.id ORDER BY best_score DESC, total_score DESC, plays DESC, u.username ASC LIMIT 100`
+       GROUP BY u.id ORDER BY plays DESC, u.username ASC LIMIT 100`
     );
     res.json({ users: result.rows });
   } catch (error) {
@@ -286,7 +305,8 @@ router.get("/admin/users", requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.username, u.role, u.avatar, u.is_banned, u.warning_count, u.created_at, u.last_login_at,
-              COUNT(DISTINCT q.id)::int AS quiz_count, COUNT(DISTINCT a.id)::int AS attempt_count
+              COUNT(DISTINCT q.id)::int AS quiz_count,
+              COUNT(DISTINCT a.id) FILTER (WHERE a.is_practice = FALSE)::int AS attempt_count
        FROM users u
        LEFT JOIN quizzes q ON q.owner_id = u.id
        LEFT JOIN attempts a ON a.user_id = u.id

@@ -6,12 +6,18 @@ CREATE TABLE IF NOT EXISTS users (
     username_key VARCHAR(32) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role VARCHAR(16) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
-    avatar VARCHAR(16) NOT NULL DEFAULT 'U',
+    avatar TEXT NOT NULL DEFAULT '',
+    theme VARCHAR(8) NOT NULL DEFAULT 'light' CHECK (theme IN ('light', 'dark')),
+    language VARCHAR(2) NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'uz', 'ru')),
     is_banned BOOLEAN NOT NULL DEFAULT FALSE,
     warning_count INTEGER NOT NULL DEFAULT 0 CHECK (warning_count >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_login_at TIMESTAMPTZ
 );
+
+ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(8) NOT NULL DEFAULT 'light';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(2) NOT NULL DEFAULT 'en';
 
 CREATE TABLE IF NOT EXISTS quizzes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,10 +50,13 @@ CREATE TABLE IF NOT EXISTS attempts (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     score INTEGER NOT NULL DEFAULT 0 CHECK (score >= 0),
     total_scoreable INTEGER NOT NULL DEFAULT 0 CHECK (total_scoreable >= 0),
+    is_practice BOOLEAN NOT NULL DEFAULT FALSE,
     answers JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK (score <= total_scoreable)
 );
+
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS is_practice BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS attempts_user_idx ON attempts (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS attempts_quiz_idx ON attempts (quiz_id, created_at DESC);
