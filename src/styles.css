@@ -620,3 +620,21 @@ textarea { resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+.group-rule-field { display: grid; gap: 10px; }
+.group-rule-field > .field-label { color: var(--ink, #24352c); font-size: 12px; font-weight: 700; }
+.group-gender-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.group-gender-choice { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 11px 12px; text-align: left; color: inherit; background: #fff; border: 1px solid #e1e9e1; border-radius: 13px; cursor: pointer; transition: border-color .18s, background .18s, box-shadow .18s; }
+.group-gender-choice:hover { border-color: #9bb9a1; }
+.group-gender-choice.selected { border-color: #35654a; background: #f0f6ef; box-shadow: 0 0 0 2px #35654a16; }
+.group-gender-choice-icon { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; color: #426b50; background: #e8f0e6; border-radius: 11px; }
+.group-gender-choice-copy { display: grid; gap: 3px; min-width: 0; }
+.group-gender-choice-copy strong { font-size: 11px; }
+.group-gender-choice-copy small { color: #78857d; font-size: 10px; }
+.gender-option-avatar { width: 34px; height: 34px; }
+.group-gender-badge { display: inline-flex; align-items: center; width: fit-content; margin-top: 9px; padding: 5px 9px; color: #52705c; background: #eef4ed; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.group-gender-badge.female { color: #95556b; background: #fbf0f4; }
+.group-gender-badge.male { color: #426c84; background: #edf5f9; }
+.gender-chip { justify-self: start; padding: 5px 9px; color: #95556b; background: #fbf0f4; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.gender-chip.male { color: #426c84; background: #edf5f9; }
+@media (max-width: 720px) { .group-gender-options { grid-template-columns: 1fr; } }

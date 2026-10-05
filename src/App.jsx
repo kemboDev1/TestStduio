@@ -39,7 +39,7 @@ function App() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
-  const [groupForm, setGroupForm] = useState({ name: "", description: "" });
+  const [groupForm, setGroupForm] = useState({ name: "", description: "", genderRule: "all" });
   const [memberForm, setMemberForm] = useState({ username: "", role: "tester" });
   const [settingsDraft, setSettingsDraft] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -169,7 +169,7 @@ function App() {
       const { group } = await api("/groups", { method: "POST", body: jsonBody(groupForm) });
       await loadWorkspace();
       setSelectedGroupId(group.id);
-      setGroupForm({ name: "", description: "" });
+      setGroupForm({ name: "", description: "", genderRule: "all" });
       announce("Guruh yaratildi. Taklif kodini mijozlar bilan ulashing.");
     } catch (error) { announce(error.message); }
     finally { setBusy(false); }
@@ -184,7 +184,7 @@ function App() {
     try {
       const { group } = await api(`/groups/${selectedGroup.id}`, {
         method: "PATCH",
-        body: jsonBody({ name: data.get("name"), description: data.get("description"), rotateInvite: data.get("rotateInvite") === "on" })
+        body: jsonBody({ name: data.get("name"), description: data.get("description"), genderRule: data.get("genderRule"), rotateInvite: data.get("rotateInvite") === "on" })
       });
       setGroups(current => current.map(item => item.id === group.id ? { ...item, ...group } : item));
       announce("Guruh sozlamalari saqlandi.");
@@ -464,18 +464,38 @@ function EmptyMessage({ icon, title, text, action }) {
 
 function GroupsPage({ user, groups, selectedGroup, selectedGroupId, setSelectedGroupId, members, groupForm, setGroupForm, onCreate, onSave, memberForm, setMemberForm, onAddMember, onRemoveMember, onJoin, onCopy, busy }) {
   const isAdmin = user.role === "admin";
+  const [genderRule, setGenderRule] = useState(selectedGroup?.gender_rule || "all");
+  useEffect(() => setGenderRule(selectedGroup?.gender_rule || "all"), [selectedGroup?.id, selectedGroup?.gender_rule]);
   return <div className="page-stack"><PageHeading eyebrow="HAMKORLIK MAYDONI" title="Guruhlar" subtitle={isAdmin ? "Mijozlaringiz va mutaxassislaringiz uchun xavfsiz ish guruhlari yarating." : "Siz qatnashadigan guruhlar va ularga tegishli testlar."} />
-    {isAdmin && <section className="surface-card create-group-card"><div className="form-heading"><span className="form-icon"><Plus size={19} /></span><div><h2>Yangi guruh ochish</h2><p>Nom va qisqa izoh kiriting. Taklif kodi avtomatik yaratiladi.</p></div></div><form className="inline-create-form" onSubmit={onCreate}><label>Guruh nomi<input value={groupForm.name} onChange={event => setGroupForm({ ...groupForm, name: event.target.value })} minLength="2" maxLength="100" placeholder="Masalan, O‘smirlar guruhi" required /></label><label>Qisqa izoh<input value={groupForm.description} onChange={event => setGroupForm({ ...groupForm, description: event.target.value })} maxLength="500" placeholder="Guruh haqida" /></label><button className="button button-primary" disabled={busy}><Plus size={16} />Guruh yaratish</button></form></section>}
+    {isAdmin && <section className="surface-card create-group-card"><div className="form-heading"><span className="form-icon"><Plus size={19} /></span><div><h2>Yangi guruh ochish</h2><p>Nom va qisqa izoh kiriting. Taklif kodi avtomatik yaratiladi.</p></div></div><form className="inline-create-form" onSubmit={onCreate}><label>Guruh nomi<input value={groupForm.name} onChange={event => setGroupForm({ ...groupForm, name: event.target.value })} minLength="2" maxLength="100" placeholder="Masalan, O‘smirlar guruhi" required /></label><label>Qisqa izoh<input value={groupForm.description} onChange={event => setGroupForm({ ...groupForm, description: event.target.value })} maxLength="500" placeholder="Guruh haqida" /></label><div className="group-rule-field"><span className="field-label">Guruhga kimlar qo‘shila oladi?</span><GroupGenderOptions value={groupForm.genderRule || "all"} onChange={value => setGroupForm(current => ({ ...current, genderRule: value }))} /></div><button className="button button-primary" disabled={busy}><Plus size={16} />Guruh yaratish</button></form></section>}
     {!isAdmin && user.role === "tester" && <section className="surface-card join-card"><span className="form-icon"><KeyRound size={18} /></span><div><h2>Taklif kodi bilan qo‘shilish</h2><p>Psixologingiz yuborgan kodni kiriting.</p></div><form onSubmit={onJoin}><input name="inviteCode" maxLength="32" placeholder="Guruh kodi" required /><button className="button button-primary" disabled={busy}>Guruhga qo‘shilish<ArrowRight size={15} /></button></form></section>}
-    {groups.length ? <div className="group-layout"><section className="group-card-grid">{groups.map((group, index) => <article className={`group-card ${group.id === selectedGroupId ? "selected" : ""}`} key={group.id}><span className={`group-color color-${index % 4}`}><Users size={19} /></span><div className="group-card-copy"><span className="role-chip">{roleLabel(group.my_role)}</span><h3>{group.name}</h3><p>{group.description || "Guruh tavsifi qo‘shilmagan."}</p></div><div className="group-card-stats"><span><UserRound size={14} />{group.member_count} ishtirokchi</span><span><ClipboardList size={14} />{group.quiz_count} test</span></div><button className="group-card-action" onClick={() => setSelectedGroupId(group.id)}>{isAdmin ? "Guruhni boshqarish" : "Guruhni ochish"}<ArrowRight size={15} /></button></article>)}</section>
+    {groups.length ? <div className="group-layout"><section className="group-card-grid">{groups.map((group, index) => <article className={`group-card ${group.id === selectedGroupId ? "selected" : ""}`} key={group.id}><span className={`group-color color-${index % 4}`}><Users size={19} /></span><div className="group-card-copy"><span className="role-chip">{roleLabel(group.my_role)}</span><h3>{group.name}</h3><p>{group.description || "Guruh tavsifi qo‘shilmagan."}</p><span className={`group-gender-badge ${group.gender_rule === "all" ? "all" : group.gender_rule}`}>{genderRuleLabel(group.gender_rule)}</span></div><div className="group-card-stats"><span><UserRound size={14} />{group.member_count} ishtirokchi</span><span><ClipboardList size={14} />{group.quiz_count} test</span></div><button className="group-card-action" onClick={() => setSelectedGroupId(group.id)}>{isAdmin ? "Guruhni boshqarish" : "Guruhni ochish"}<ArrowRight size={15} /></button></article>)}</section>
         {selectedGroup && isAdmin && <section className="surface-card group-management"><div className="section-heading"><div><span className="eyebrow">GURUH SOZLAMALARI</span><h2>{selectedGroup.name}</h2></div><span className="status-pill"><span />Faol</span></div>
-          <form className="group-edit-form" onSubmit={onSave}><label>Guruh nomi<input name="name" defaultValue={selectedGroup.name} maxLength="100" required /></label><label>Izoh<textarea name="description" defaultValue={selectedGroup.description} maxLength="500" rows="2" /></label><label className="check-row"><input name="rotateInvite" type="checkbox" />Eski taklif kodini bekor qilib, yangisini yaratish</label><button className="button button-outline" disabled={busy}>O‘zgarishlarni saqlash</button></form>
+          <form className="group-edit-form" onSubmit={onSave}><label>Guruh nomi<input name="name" defaultValue={selectedGroup.name} maxLength="100" required /></label><label>Izoh<textarea name="description" defaultValue={selectedGroup.description} maxLength="500" rows="2" /></label><div className="group-rule-field"><span className="field-label">Guruhga kimlar qo‘shila oladi?</span><input type="hidden" name="genderRule" value={genderRule} /><GroupGenderOptions value={genderRule} onChange={setGenderRule} /></div><label className="check-row"><input name="rotateInvite" type="checkbox" />Eski taklif kodini bekor qilib, yangisini yaratish</label><button className="button button-outline" disabled={busy}>O‘zgarishlarni saqlash</button></form>
           <div className="invite-panel"><div><span className="eyebrow">MIJOZLAR UCHUN TAKLIF KODI</span><strong>{selectedGroup.invite_code}</strong><p>Kod bilan ro‘yxatdan o‘tgan foydalanuvchi shu guruhga qo‘shiladi.</p></div><button className="button button-primary" onClick={() => onCopy(selectedGroup.invite_code)}><Copy size={15} />Nusxalash</button></div>
           <div className="member-management"><div className="section-heading"><div><span className="eyebrow">GURUH A’ZOLARI</span><h3>Ishtirokchilar</h3></div><span className="section-meta">{members.length} kishi</span></div><form className="add-member-form" onSubmit={onAddMember}><label>Ro‘yxatdan o‘tgan foydalanuvchi nomi<input value={memberForm.username} onChange={event => setMemberForm({ ...memberForm, username: event.target.value })} minLength="2" maxLength="32" placeholder="Foydalanuvchi ismi" required /></label><label>Roli<select value={memberForm.role} onChange={event => setMemberForm({ ...memberForm, role: event.target.value })}><option value="tester">Tester — mijoz</option><option value="creator">Creator — test tuzuvchi</option></select></label><button className="button button-primary" disabled={busy}><Plus size={16} />Qo‘shish</button></form>
-            <div className="member-list">{members.map(member => <article className="member-row" key={member.id}><Avatar value={member.avatar} gender={member.gender} /><span className="member-name"><strong>{member.first_name ? `${member.first_name} ${member.last_name}` : member.username}</strong><small>{member.response_count} ta javob yuborgan</small></span><span className={`role-chip ${member.member_role === "creator" ? "role-creator" : ""}`}>{roleLabel(member.member_role)}</span><button className="icon-button icon-danger" title="Guruhdan olib tashlash" onClick={() => onRemoveMember(member)}><X size={16} /></button></article>)}{!members.length && <p className="muted">Guruhda hali ishtirokchi yo‘q. Taklif kodini ulashing yoki foydalanuvchini qo‘shing.</p>}</div>
+            <div className="member-list">{members.map(member => <article className="member-row" key={member.id}><Avatar value={member.avatar} gender={member.gender} /><span className="member-name"><strong>{member.first_name ? `${member.first_name} ${member.last_name}` : member.username}</strong><small>{member.response_count} ta javob yuborgan</small></span><span className={`gender-chip ${member.gender === "male" ? "male" : "female"}`}>{member.gender === "male" ? "Erkak" : "Ayol"}</span><span className={`role-chip ${member.member_role === "creator" ? "role-creator" : ""}`}>{roleLabel(member.member_role)}</span><button className="icon-button icon-danger" title="Guruhdan olib tashlash" onClick={() => onRemoveMember(member)}><X size={16} /></button></article>)}{!members.length && <p className="muted">Guruhda hali ishtirokchi yo‘q. Taklif kodini ulashing yoki foydalanuvchini qo‘shing.</p>}</div>
           </div>
         </section>}
       </div> : !isAdmin && user.role !== "tester" ? <EmptyMessage icon={<Users size={24} />} title="Sizga guruh biriktirilmagan" text="Admin sizni guruhga Creator sifatida qo‘shishi mumkin." /> : null}
+  </div>;
+}
+
+const GROUP_GENDER_RULES = [
+  { value: "all", label: "Barchasi", help: "Ayol va erkaklar", icon: <Users size={20} /> },
+  { value: "female", label: "Faqat ayollar", help: "Ayol ishtirokchilar", icon: <Avatar value="woman" className="gender-option-avatar" /> },
+  { value: "male", label: "Faqat erkaklar", help: "Erkak ishtirokchilar", icon: <Avatar value="man" className="gender-option-avatar" /> },
+];
+
+function genderRuleLabel(rule) {
+  return GROUP_GENDER_RULES.find(option => option.value === rule)?.label || "Barchasi";
+}
+
+function GroupGenderOptions({ value, onChange }) {
+  return <div className="group-gender-options" role="group" aria-label="Guruh ishtirokchilarining jinsi">
+    {GROUP_GENDER_RULES.map(option => <button type="button" key={option.value} className={`group-gender-choice ${value === option.value ? "selected" : ""}`} aria-pressed={value === option.value} onClick={() => onChange(option.value)}>
+      <span className="group-gender-choice-icon">{option.icon}</span><span className="group-gender-choice-copy"><strong>{option.label}</strong><small>{option.help}</small></span>
+    </button>)}
   </div>;
 }
 

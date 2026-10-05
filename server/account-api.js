@@ -40,11 +40,15 @@ router.post("/register", authLimiter, async (req, res, next) => {
     await client.query("BEGIN");
     let group = null;
     if (inviteCode) {
-      const groupResult = await client.query("SELECT id FROM groups WHERE invite_code = $1", [inviteCode]);
+      const groupResult = await client.query("SELECT id, gender_rule FROM groups WHERE invite_code = $1", [inviteCode]);
       group = groupResult.rows[0];
       if (!group) {
         await client.query("ROLLBACK");
         return res.status(400).json({ error: "Guruh kodi topilmadi yoki bekor qilingan." });
+      }
+      if (group.gender_rule !== "all" && group.gender_rule !== gender) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: group.gender_rule === "female" ? "Ushbu guruhga faqat ayollar qo‘shila oladi." : "Ushbu guruhga faqat erkaklar qo‘shila oladi." });
       }
     }
 
@@ -111,6 +115,14 @@ router.patch("/settings", requireUser, async (req, res, next) => {
   const avatar = ["woman", "girl", "woman-sage", "woman-rose", "man", "boy", "man-blue", "man-olive"].includes(req.body?.avatar) ? req.body.avatar : (gender === "male" ? "man" : "woman");
   const textSize = ["small", "medium", "large"].includes(req.body?.textSize) ? req.body.textSize : (req.user.text_size || "medium");
   try {
+    if (gender !== req.user.gender) {
+      const incompatibleGroup = await pool.query(
+        `SELECT g.name, g.gender_rule FROM group_members gm JOIN groups g ON g.id = gm.group_id
+         WHERE gm.user_id = $1 AND g.gender_rule <> 'all' AND g.gender_rule <> $2 LIMIT 1`,
+        [req.user.id, gender]
+      );
+      if (incompatibleGroup.rowCount) return res.status(409).json({ error: `Jinsingizni o‘zgartirish uchun avval “${incompatibleGroup.rows[0].name}” guruhidan chiqing yoki guruh adminidan jins qoidasini o‘zgartirishni so‘rang.` });
+    }
     const result = await pool.query(
       `UPDATE users SET theme = $2, language = $3, avatar = $4, text_size = $5, gender = $6
        WHERE id = $1

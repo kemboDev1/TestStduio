@@ -54,7 +54,7 @@ router.get("/overview", async (req, res, next) => {
 router.get("/groups", async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT g.id, g.name, g.description, g.created_at,
+      `SELECT g.id, g.name, g.description, g.gender_rule, g.created_at,
               CASE WHEN g.owner_id = $1 THEN g.invite_code ELSE NULL END AS invite_code,
               CASE WHEN g.owner_id = $1 THEN 'admin' ELSE gm.member_role END AS my_role,
               (SELECT COUNT(*)::int FROM group_members m WHERE m.group_id = g.id AND m.member_role = 'tester') AS member_count,
@@ -72,12 +72,13 @@ router.get("/groups", async (req, res, next) => {
 router.post("/groups", requireAdmin, async (req, res, next) => {
   const name = cleanString(req.body?.name, 100);
   const description = cleanString(req.body?.description, 500);
+  const genderRule = ["all", "female", "male"].includes(req.body?.genderRule) ? req.body.genderRule : "all";
   if (name.length < 2) return res.status(400).json({ error: "Guruh nomi kamida 2 ta belgidan iborat bo‘lsin." });
   try {
     const result = await pool.query(
-      `INSERT INTO groups (owner_id, name, description, invite_code) VALUES ($1, $2, $3, $4)
-       RETURNING id, name, description, invite_code, created_at`,
-      [req.user.id, name, description, newInviteCode()]
+      `INSERT INTO groups (owner_id, name, description, gender_rule, invite_code) VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, description, gender_rule, invite_code, created_at`,
+      [req.user.id, name, description, genderRule, newInviteCode()]
     );
     res.status(201).json({ group: { ...result.rows[0], my_role: "admin", member_count: 0, quiz_count: 0 } });
   } catch (error) { next(error); }
@@ -86,13 +87,21 @@ router.post("/groups", requireAdmin, async (req, res, next) => {
 router.patch("/groups/:id", requireAdmin, async (req, res, next) => {
   const name = cleanString(req.body?.name, 100);
   const description = cleanString(req.body?.description, 500);
+  const genderRule = ["all", "female", "male"].includes(req.body?.genderRule) ? req.body.genderRule : "all";
   if (name.length < 2) return res.status(400).json({ error: "Guruh nomi kamida 2 ta belgidan iborat bo‘lsin." });
   try {
+    if (genderRule !== "all") {
+      const incompatible = await pool.query(
+        "SELECT COUNT(*)::int AS count FROM group_members gm JOIN users u ON u.id = gm.user_id WHERE gm.group_id = $1 AND u.gender <> $2",
+        [req.params.id, genderRule]
+      );
+      if (incompatible.rows[0].count > 0) return res.status(409).json({ error: "Guruh jinsini o‘zgartirishdan oldin mos kelmaydigan ishtirokchilarni guruhdan olib tashlang." });
+    }
     const result = await pool.query(
-      `UPDATE groups SET name = $3, description = $4,
-         invite_code = CASE WHEN $5::boolean THEN $6 ELSE invite_code END, updated_at = NOW()
-       WHERE id = $1 AND owner_id = $2 RETURNING id, name, description, invite_code, created_at`,
-      [req.params.id, req.user.id, name, description, req.body?.rotateInvite === true, newInviteCode()]
+      `UPDATE groups SET name = $3, description = $4, gender_rule = $5,
+         invite_code = CASE WHEN $6::boolean THEN $7 ELSE invite_code END, updated_at = NOW()
+       WHERE id = $1 AND owner_id = $2 RETURNING id, name, description, gender_rule, invite_code, created_at`,
+      [req.params.id, req.user.id, name, description, genderRule, req.body?.rotateInvite === true, newInviteCode()]
     );
     if (!result.rowCount) return res.status(404).json({ error: "Guruh topilmadi." });
     res.json({ group: result.rows[0] });
@@ -103,8 +112,11 @@ router.post("/groups/join", async (req, res, next) => {
   if (req.user.role === "admin") return res.status(400).json({ error: "Admin hisob guruhga tester sifatida qo‘shilmaydi." });
   const code = cleanString(req.body?.inviteCode, 32).toUpperCase();
   try {
-    const group = await pool.query("SELECT id FROM groups WHERE invite_code = $1", [code]);
+    const group = await pool.query("SELECT id, gender_rule FROM groups WHERE invite_code = $1", [code]);
     if (!group.rowCount) return res.status(404).json({ error: "Taklif kodi topilmadi yoki bekor qilingan." });
+    if (group.rows[0].gender_rule !== "all" && group.rows[0].gender_rule !== req.user.gender) {
+      return res.status(403).json({ error: group.rows[0].gender_rule === "female" ? "Bu guruh faqat ayollar uchun." : "Bu guruh faqat erkaklar uchun." });
+    }
     await pool.query(
       `INSERT INTO group_members (group_id, user_id, member_role) VALUES ($1, $2, 'tester')
        ON CONFLICT (group_id, user_id) DO NOTHING`,
@@ -135,10 +147,14 @@ router.post("/groups/:id/members", requireAdmin, async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const group = await client.query("SELECT id FROM groups WHERE id = $1 AND owner_id = $2", [req.params.id, req.user.id]);
+    const group = await client.query("SELECT id, gender_rule FROM groups WHERE id = $1 AND owner_id = $2", [req.params.id, req.user.id]);
     if (!group.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Guruh topilmadi." }); }
-    const user = await client.query("SELECT id, username FROM users WHERE username_key = $1 AND role <> 'admin'", [usernameKey]);
+    const user = await client.query("SELECT id, username, gender FROM users WHERE username_key = $1 AND role <> 'admin'", [usernameKey]);
     if (!user.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Shu ismli hisob topilmadi. Avval ro‘yxatdan o‘tsin." }); }
+    if (group.rows[0].gender_rule !== "all" && group.rows[0].gender_rule !== user.rows[0].gender) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: group.rows[0].gender_rule === "female" ? "Bu guruhga faqat ayollarni qo‘shish mumkin." : "Bu guruhga faqat erkaklarni qo‘shish mumkin." });
+    }
     await client.query(
       `INSERT INTO group_members (group_id, user_id, member_role) VALUES ($1, $2, $3)
        ON CONFLICT (group_id, user_id) DO UPDATE SET member_role = EXCLUDED.member_role`,

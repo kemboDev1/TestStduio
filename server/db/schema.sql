@@ -54,12 +54,17 @@ CREATE TABLE IF NOT EXISTS groups (
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500) NOT NULL DEFAULT '',
+    gender_rule VARCHAR(8) NOT NULL DEFAULT 'all' CHECK (gender_rule IN ('all', 'female', 'male')),
     invite_code VARCHAR(32) NOT NULL UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS groups_owner_idx ON groups (owner_id, created_at DESC);
+
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS gender_rule VARCHAR(8) NOT NULL DEFAULT 'all';
+ALTER TABLE groups DROP CONSTRAINT IF EXISTS groups_gender_rule_check;
+ALTER TABLE groups ADD CONSTRAINT groups_gender_rule_check CHECK (gender_rule IN ('all', 'female', 'male'));
 
 CREATE TABLE IF NOT EXISTS group_members (
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
