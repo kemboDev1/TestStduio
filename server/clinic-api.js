@@ -51,6 +51,30 @@ router.get("/overview", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get("/my/results", async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.id, a.created_at, q.id AS quiz_id, q.title AS quiz_title,
+              COALESCE(g.name, 'Guruh') AS group_name, owner.username AS psychologist,
+              COALESCE(response_items.items, '[]'::jsonb) AS responses
+       FROM attempts a
+       JOIN quizzes q ON q.id = a.quiz_id
+       JOIN users owner ON owner.id = q.owner_id
+       LEFT JOIN groups g ON g.id = q.group_id
+       LEFT JOIN LATERAL (
+         SELECT jsonb_agg(jsonb_build_object('question', qq.prompt, 'answer', answer_row.value->>'answer') ORDER BY qq.position) AS items
+         FROM jsonb_array_elements(a.answers) AS answer_row(value)
+         JOIN quiz_questions qq ON qq.id::text = answer_row.value->>'questionId'
+         WHERE qq.quiz_id = q.id
+       ) response_items ON TRUE
+       WHERE a.user_id = $1 AND a.is_practice = FALSE
+       ORDER BY a.created_at DESC LIMIT 100`,
+      [req.user.id]
+    );
+    res.json({ results: result.rows });
+  } catch (error) { next(error); }
+});
+
 router.get("/groups", async (req, res, next) => {
   try {
     const result = await pool.query(

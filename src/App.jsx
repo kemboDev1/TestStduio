@@ -15,6 +15,7 @@ const initialDraft = () => ({
 
 const roleLabel = role => ({ admin: "Admin", creator: "Creator", tester: "Tester", user: "Tester" })[role] || "Tester";
 const dateLabel = (value, language = document.documentElement.lang || "uz") => value ? new Intl.DateTimeFormat(({ uz: "uz-UZ", ru: "ru-RU", en: "en-US" })[language] || "uz-UZ", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value)) : "—";
+const dateTimeLabel = (value, language = document.documentElement.lang || "uz") => value ? new Intl.DateTimeFormat(({ uz: "uz-UZ", ru: "ru-RU", en: "en-US" })[language] || "uz-UZ", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "—";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -30,6 +31,8 @@ function App() {
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedQuiz, setSelectedQuiz] = useState(null);
   const [results, setResults] = useState(null);
+  const [myResults, setMyResults] = useState([]);
+  const [myResultsLoading, setMyResultsLoading] = useState(false);
   const [answers, setAnswers] = useState({});
   const [attempt, setAttempt] = useState(null);
   const [draft, setDraft] = useState(initialDraft);
@@ -119,6 +122,16 @@ function App() {
     }
   }, [page, isAdmin]);
 
+  useEffect(() => {
+    if (page !== "my-results" || !user) return;
+    let active = true;
+    setMyResultsLoading(true);
+    api("/my/results").then(({ results: items }) => { if (active) setMyResults(items); })
+      .catch(error => { if (active) announce(error.message); })
+      .finally(() => { if (active) setMyResultsLoading(false); });
+    return () => { active = false; };
+  }, [page, user?.id]);
+
   async function submitAuth(event) {
     event.preventDefault();
     setAuthBusy(true);
@@ -137,6 +150,7 @@ function App() {
     setUser(null);
     setGroups([]);
     setQuizzes([]);
+    setMyResults([]);
     setPage("home");
   }
 
@@ -281,8 +295,9 @@ function App() {
         })) })
       });
       setAttempt(payload.attempt);
-      announce("Javoblaringiz saqlandi. Ball qo‘yilmaydi — psixologingiz ularni siz bilan muhokama qiladi.");
       await loadWorkspace();
+      setPage("my-results");
+      announce("Javoblaringiz saqlandi. Natijangiz va sana yangi Natijalar bo‘limida.");
     } catch (error) { announce(error.message); }
     finally { setBusy(false); }
   }
@@ -337,6 +352,7 @@ function App() {
           <SideNav active={page === "home"} icon={<Home size={18} />} onClick={() => setPage("home")}>Umumiy ko‘rinish</SideNav>
           <SideNav active={page === "groups"} icon={<Users size={18} />} onClick={() => setPage("groups")}>Guruhlar</SideNav>
           <SideNav active={page === "tests" || page === "play" || page === "results"} icon={<ClipboardList size={18} />} onClick={() => setPage("tests")}>Testlar</SideNav>
+          <SideNav active={page === "my-results"} icon={<Clock3 size={18} />} onClick={() => setPage("my-results")}>Natijalar</SideNav>
           {isAdmin && <SideNav active={page === "members"} icon={<UserRound size={18} />} onClick={() => setPage("members")}>Ishtirokchilar</SideNav>}
           {canCreate && <SideNav active={page === "builder"} icon={<Plus size={18} />} onClick={startBuilder}>Test yaratish</SideNav>}
         </nav>
@@ -364,6 +380,7 @@ function App() {
           {page === "groups" && <GroupsPage user={user} groups={groups} selectedGroup={selectedGroup} selectedGroupId={selectedGroupId} setSelectedGroupId={setSelectedGroupId} members={groupMembers} groupForm={groupForm} setGroupForm={setGroupForm} onCreate={createGroup} onSave={saveGroup} memberForm={memberForm} setMemberForm={setMemberForm} onAddMember={addMember} onRemoveMember={removeMember} onJoin={joinGroup} onCopy={copyInvite} busy={busy} />}
           {page === "tests" && <TestsPage user={user} quizzes={visibleQuizzes} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onCreate={startBuilder} onOpen={openQuiz} onResults={openResults} onDelete={moderate} busy={busy} />}
           {page === "members" && <MembersPage users={adminUsers} groups={groups} onManageGroups={() => setPage("groups")} onModerate={moderate} />}
+          {page === "my-results" && <MyResultsPage results={myResults} loading={myResultsLoading} />}
           {page === "builder" && <BuilderPage user={user} draft={draft} setDraft={setDraft} groups={authorGroups} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} aiProvider={aiProvider} busy={busy} onAi={generateWithAi} onPublish={publishQuiz} onBack={() => setPage("tests")} onManageGroups={() => setPage("groups")} updateQuestion={updateQuestion} />}
           {page === "play" && selectedQuiz && <PlayPage data={selectedQuiz} answers={answers} setAnswers={setAnswers} attempt={attempt} busy={busy} onSubmit={submitAttempt} onBack={() => setPage("tests")} />}
           {page === "results" && results && <ResultsPage data={results} onBack={() => setPage("tests")} />}
@@ -376,7 +393,7 @@ function App() {
 }
 
 function pageTitle(page) {
-  return ({ home: "Umumiy ko‘rinish", groups: "Guruhlar", tests: "Testlar", members: "Ishtirokchilar", builder: "Test yaratish", play: "Test topshirish", results: "Javoblar", settings: "Sozlamalar" })[page] || "Umumiy ko‘rinish";
+  return ({ home: "Umumiy ko‘rinish", groups: "Guruhlar", tests: "Testlar", "my-results": "Natijalar", members: "Ishtirokchilar", builder: "Test yaratish", play: "Test topshirish", results: "Javoblar", settings: "Sozlamalar" })[page] || "Umumiy ko‘rinish";
 }
 
 function Avatar({ value, gender = "female", className = "avatar" }) {
@@ -385,7 +402,7 @@ function Avatar({ value, gender = "female", className = "avatar" }) {
 }
 
 function SideNav({ active, icon, onClick, children }) {
-  return <button className={`side-nav-button ${active ? "active" : ""}`} onClick={onClick}>{icon}<span>{children}</span>{active && <span className="nav-indicator" />}</button>;
+  return <button className={`side-nav-button ${active ? "active" : ""}`} onClick={onClick} title={children} aria-label={children}>{icon}<span>{children}</span>{active && <span className="nav-indicator" />}</button>;
 }
 
 function ConfirmDialog({ dialog, onResolve }) {
@@ -555,6 +572,16 @@ function ResultsPage({ data, onBack }) {
   const { quiz, questions, results } = data;
   return <div className="page-stack"><button className="back-link" onClick={onBack}><ArrowLeft size={15} />Testlarga qaytish</button><PageHeading eyebrow={`${quiz.group_name || "GURUH"} · JAVOBLAR`} title={quiz.title} subtitle="Javoblarni faqat ushbu guruhga ruxsati bor mutaxassislar ko‘ra oladi." /><div className="results-summary"><span><Users size={17} /><strong>{results.length}</strong> ta javob</span><span><ClipboardList size={17} /><strong>{questions.length}</strong> ta savol</span></div>
     {results.length ? <div className="response-list">{results.map(result => <details className="response-card" key={result.id}><summary><Avatar value={result.avatar} gender={result.gender} /><span><strong>{result.first_name ? `${result.first_name} ${result.last_name}` : result.username}</strong><small>{dateLabel(result.created_at)} · test topshirildi</small></span><ChevronRight size={17} /></summary><div className="response-answers">{questions.map((question, index) => { const answer = result.answers.find(item => item.questionId === question.id); return <article key={question.id}><span>SAVOL {String(index + 1).padStart(2, "0")}</span><strong>{question.prompt}</strong><p>{answer?.answer || "Javob berilmagan"}</p></article>; })}</div></details>)}</div> : <EmptyMessage icon={<FileText size={23} />} title="Hali javob kelmagan" text="Mijozlar testingizni topshirganda javoblari shu yerda paydo bo‘ladi." />}
+  </div>;
+}
+
+function MyResultsPage({ results, loading }) {
+  return <div className="page-stack"><PageHeading eyebrow="SHAXSIY KABINET" title="Natijalar" subtitle="Yechgan testlaringiz, topshirgan sanangiz va javoblaringiz shu yerda saqlanadi. Bu testlarda ball qo‘yilmaydi." />
+    {loading ? <div className="surface-card results-loading" role="status"><span className="live-dot" />Natijalar yuklanmoqda…</div> : results.length ? <div className="my-results-list">{results.map((result, index) => <article className="surface-card my-result-card" key={result.id}>
+      <div className="my-result-heading"><span className={`test-art art-${index % 4}`}><FileText size={20} /></span><div className="my-result-title"><span className="eyebrow">{result.group_name || "GURUH"}</span><h2>{result.quiz_title}</h2><p>Psixolog: {result.psychologist}</p></div><time dateTime={result.created_at}><Clock3 size={14} />{dateTimeLabel(result.created_at)}</time></div>
+      <details className="my-result-details"><summary>Javoblarimni ko‘rish<ChevronRight size={16} /></summary><div className="response-answers">{result.responses.map((response, responseIndex) => <article key={`${result.id}-${responseIndex}`}><span>SAVOL {String(responseIndex + 1).padStart(2, "0")}</span><strong>{response.question}</strong><p>{response.answer || "Javob berilmagan"}</p></article>)}</div></details>
+      <div className="my-result-note"><ShieldCheck size={16} /><span>Javoblaringizni psixologingiz siz bilan suhbatda ko‘rib chiqadi. Bu testda ball yoki avtomatik tashxis berilmaydi.</span></div>
+    </article>)}</div> : <EmptyMessage icon={<Clock3 size={23} />} title="Hali topshirilgan test yo‘q" text="Testni topshirganingizdan so‘ng, sanasi va javoblaringiz bu yerda ko‘rinadi." />}
   </div>;
 }
 
