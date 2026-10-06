@@ -107,6 +107,10 @@ CREATE TABLE IF NOT EXISTS attempts (
 );
 
 ALTER TABLE attempts ADD COLUMN IF NOT EXISTS is_practice BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS ai_consent BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS ai_reflection JSONB;
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS ai_model VARCHAR(120);
+ALTER TABLE attempts ADD COLUMN IF NOT EXISTS ai_generated_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS attempts_user_idx ON attempts (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS attempts_quiz_idx ON attempts (quiz_id, created_at DESC);

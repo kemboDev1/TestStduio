@@ -34,6 +34,7 @@ function App() {
   const [myResults, setMyResults] = useState([]);
   const [myResultsLoading, setMyResultsLoading] = useState(false);
   const [answers, setAnswers] = useState({});
+  const [aiConsent, setAiConsent] = useState(false);
   const [attempt, setAttempt] = useState(null);
   const [draft, setDraft] = useState(initialDraft);
   const [aiTopic, setAiTopic] = useState("");
@@ -160,6 +161,7 @@ function App() {
       const data = await api(`/quizzes/${quiz.id}`);
       setSelectedQuiz(data);
       setAnswers({});
+      setAiConsent(false);
       setAttempt(null);
       setPage("play");
     } catch (error) { announce(error.message); }
@@ -288,7 +290,7 @@ function App() {
     try {
       const payload = await api(`/quizzes/${selectedQuiz.quiz.id}/attempts`, {
         method: "POST",
-        body: jsonBody({ answers: selectedQuiz.questions.map(question => ({
+        body: jsonBody({ aiConsent, answers: selectedQuiz.questions.map(question => ({
           questionId: question.id,
           selectedOptionIndex: answers[question.id],
           text: answers[question.id]
@@ -297,7 +299,7 @@ function App() {
       setAttempt(payload.attempt);
       await loadWorkspace();
       setPage("my-results");
-      announce("Javoblaringiz saqlandi. Natijangiz va sana yangi Natijalar bo‘limida.");
+      announce(payload.attempt.ai_reflection ? "Javoblaringiz saqlandi. AI mulohazasi Natijalar bo‘limida tayyor." : aiConsent ? "Javoblaringiz saqlandi. AI mulohazasi tayyor bo‘lmadi; psixologingiz javoblarni ko‘ra oladi." : "Javoblaringiz saqlandi. AI tahliliga rozilik berilmadi; javoblarni faqat psixologingiz ko‘radi.");
     } catch (error) { announce(error.message); }
     finally { setBusy(false); }
   }
@@ -382,7 +384,7 @@ function App() {
           {page === "members" && <MembersPage users={adminUsers} groups={groups} onManageGroups={() => setPage("groups")} onModerate={moderate} />}
           {page === "my-results" && <MyResultsPage results={myResults} loading={myResultsLoading} />}
           {page === "builder" && <BuilderPage user={user} draft={draft} setDraft={setDraft} groups={authorGroups} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} aiProvider={aiProvider} busy={busy} onAi={generateWithAi} onPublish={publishQuiz} onBack={() => setPage("tests")} onManageGroups={() => setPage("groups")} updateQuestion={updateQuestion} />}
-          {page === "play" && selectedQuiz && <PlayPage data={selectedQuiz} answers={answers} setAnswers={setAnswers} attempt={attempt} busy={busy} onSubmit={submitAttempt} onBack={() => setPage("tests")} />}
+          {page === "play" && selectedQuiz && <PlayPage data={selectedQuiz} answers={answers} setAnswers={setAnswers} aiConsent={aiConsent} setAiConsent={setAiConsent} attempt={attempt} busy={busy} onSubmit={submitAttempt} onBack={() => setPage("tests")} />}
           {page === "results" && results && <ResultsPage data={results} onBack={() => setPage("tests")} />}
           {page === "settings" && settingsDraft && <SettingsPage user={user} draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} busy={busy} />}
         </main>
@@ -560,18 +562,18 @@ function PageHeading({ eyebrow, title, subtitle, action }) {
   return <div className="page-heading"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{subtitle}</p></div>{action}</div>;
 }
 
-function PlayPage({ data, answers, setAnswers, attempt, busy, onSubmit, onBack }) {
+function PlayPage({ data, answers, setAnswers, aiConsent, setAiConsent, attempt, busy, onSubmit, onBack }) {
   const { quiz, questions } = data;
   return <div className="page-stack play-page"><button className="back-link" onClick={onBack}><ArrowLeft size={15} />Testlarga qaytish</button><section className="play-intro"><span className="eyebrow">{quiz.group_name || "GURUH TESTI"} · {quiz.owner_name}</span><h1>{quiz.title}</h1><p>{quiz.description || "Javoblaringizni o‘zingizga qulay sur’atda belgilang."}</p><div className="play-prompt"><ShieldCheck size={17} /><span>Javoblaringiz maxfiy saqlanadi va mutaxassis tomonidan ko‘rib chiqiladi.</span></div></section>
     {attempt && <div className="completion-banner"><span><Check size={18} /></span><div><strong>Javoblaringiz qabul qilindi</strong><p>Bu test ball bilan baholanmaydi. Psixologingiz javoblaringizni siz bilan xotirjam muhokama qiladi.</p></div></div>}
-    <form className="play-form" onSubmit={onSubmit}>{questions.map((question, index) => <article className="play-question" key={question.id}><span className="question-number">{String(index + 1).padStart(2, "0")}</span><div className="question-body"><h2>{question.prompt}</h2>{question.type === "text" ? <textarea rows="4" required disabled={Boolean(attempt)} value={answers[question.id] || ""} onChange={event => setAnswers({ ...answers, [question.id]: event.target.value })} placeholder="Javobingizni yozing…" /> : <div className={question.type === "scale" ? "scale-options" : "play-options"}>{question.options.map((option, optionIndex) => <label className={`play-option ${answers[question.id] === optionIndex ? "selected" : ""}`} key={optionIndex}><input type="radio" name={question.id} required disabled={Boolean(attempt)} checked={answers[question.id] === optionIndex} onChange={() => setAnswers({ ...answers, [question.id]: optionIndex })} /><span>{option}</span>{question.type === "scale" && <small>{optionIndex + 1}</small>}</label>)}</div>}</div></article>)}{!attempt && <button className="button button-primary submit-test" disabled={busy}>{busy ? "Saqlanmoqda…" : "Javoblarni yuborish"}<ArrowRight size={16} /></button>}</form>
+    <form className="play-form" onSubmit={onSubmit}>{questions.map((question, index) => <article className="play-question" key={question.id}><span className="question-number">{String(index + 1).padStart(2, "0")}</span><div className="question-body"><h2>{question.prompt}</h2>{question.type === "text" ? <textarea rows="4" required disabled={Boolean(attempt)} value={answers[question.id] || ""} onChange={event => setAnswers({ ...answers, [question.id]: event.target.value })} placeholder="Javobingizni yozing…" /> : <div className={question.type === "scale" ? "scale-options" : "play-options"}>{question.options.map((option, optionIndex) => <label className={`play-option ${answers[question.id] === optionIndex ? "selected" : ""}`} key={optionIndex}><input type="radio" name={question.id} required disabled={Boolean(attempt)} checked={answers[question.id] === optionIndex} onChange={() => setAnswers({ ...answers, [question.id]: optionIndex })} /><span>{option}</span>{question.type === "scale" && <small>{optionIndex + 1}</small>}</label>)}</div>}</div></article>)}{!attempt && <><label className="ai-consent"><input type="checkbox" checked={aiConsent} onChange={event => setAiConsent(event.target.checked)} /><span><strong>AI mulohazasini olishga roziman (ixtiyoriy)</strong><small>Belgilasangiz, faqat savol va javoblaringiz AI xizmatiga tahlil uchun yuboriladi. Ism va akkaunt ma’lumotlari yuborilmaydi. Belgilamasangiz, javoblar saqlanib, faqat psixologingizga ko‘rinadi. AI sharhi tashxis emas.</small></span></label><button className="button button-primary submit-test" disabled={busy}>{busy ? "Saqlanmoqda…" : "Javoblarni yuborish"}<ArrowRight size={16} /></button></>}</form>
   </div>;
 }
 
 function ResultsPage({ data, onBack }) {
   const { quiz, questions, results } = data;
   return <div className="page-stack"><button className="back-link" onClick={onBack}><ArrowLeft size={15} />Testlarga qaytish</button><PageHeading eyebrow={`${quiz.group_name || "GURUH"} · JAVOBLAR`} title={quiz.title} subtitle="Javoblarni faqat ushbu guruhga ruxsati bor mutaxassislar ko‘ra oladi." /><div className="results-summary"><span><Users size={17} /><strong>{results.length}</strong> ta javob</span><span><ClipboardList size={17} /><strong>{questions.length}</strong> ta savol</span></div>
-    {results.length ? <div className="response-list">{results.map(result => <details className="response-card" key={result.id}><summary><Avatar value={result.avatar} gender={result.gender} /><span><strong>{result.first_name ? `${result.first_name} ${result.last_name}` : result.username}</strong><small>{dateLabel(result.created_at)} · test topshirildi</small></span><ChevronRight size={17} /></summary><div className="response-answers">{questions.map((question, index) => { const answer = result.answers.find(item => item.questionId === question.id); return <article key={question.id}><span>SAVOL {String(index + 1).padStart(2, "0")}</span><strong>{question.prompt}</strong><p>{answer?.answer || "Javob berilmagan"}</p></article>; })}</div></details>)}</div> : <EmptyMessage icon={<FileText size={23} />} title="Hali javob kelmagan" text="Mijozlar testingizni topshirganda javoblari shu yerda paydo bo‘ladi." />}
+    {results.length ? <div className="response-list">{results.map(result => <details className="response-card" key={result.id}><summary><Avatar value={result.avatar} gender={result.gender} /><span><strong>{result.first_name ? `${result.first_name} ${result.last_name}` : result.username}</strong><small>{dateLabel(result.created_at)} · test topshirildi</small></span><ChevronRight size={17} /></summary><ReflectionPanel reflection={result.ai_reflection} consent={result.ai_consent} audience="psychologist" /><div className="response-answers">{questions.map((question, index) => { const answer = result.answers.find(item => item.questionId === question.id); return <article key={question.id}><span>SAVOL {String(index + 1).padStart(2, "0")}</span><strong>{question.prompt}</strong><p>{answer?.answer || "Javob berilmagan"}</p></article>; })}</div></details>)}</div> : <EmptyMessage icon={<FileText size={23} />} title="Hali javob kelmagan" text="Mijozlar testingizni topshirganda javoblari shu yerda paydo bo‘ladi." />}
   </div>;
 }
 
@@ -579,10 +581,21 @@ function MyResultsPage({ results, loading }) {
   return <div className="page-stack"><PageHeading eyebrow="SHAXSIY KABINET" title="Natijalar" subtitle="Yechgan testlaringiz, topshirgan sanangiz va javoblaringiz shu yerda saqlanadi. Bu testlarda ball qo‘yilmaydi." />
     {loading ? <div className="surface-card results-loading" role="status"><span className="live-dot" />Natijalar yuklanmoqda…</div> : results.length ? <div className="my-results-list">{results.map((result, index) => <article className="surface-card my-result-card" key={result.id}>
       <div className="my-result-heading"><span className={`test-art art-${index % 4}`}><FileText size={20} /></span><div className="my-result-title"><span className="eyebrow">{result.group_name || "GURUH"}</span><h2>{result.quiz_title}</h2><p>Psixolog: {result.psychologist}</p></div><time dateTime={result.created_at}><Clock3 size={14} />{dateTimeLabel(result.created_at)}</time></div>
-      <details className="my-result-details"><summary>Javoblarimni ko‘rish<ChevronRight size={16} /></summary><div className="response-answers">{result.responses.map((response, responseIndex) => <article key={`${result.id}-${responseIndex}`}><span>SAVOL {String(responseIndex + 1).padStart(2, "0")}</span><strong>{response.question}</strong><p>{response.answer || "Javob berilmagan"}</p></article>)}</div></details>
+      <ReflectionPanel reflection={result.ai_reflection} consent={result.ai_consent} audience="participant" /><details className="my-result-details"><summary>Javoblarimni ko‘rish<ChevronRight size={16} /></summary><div className="response-answers">{result.responses.map((response, responseIndex) => <article key={`${result.id}-${responseIndex}`}><span>SAVOL {String(responseIndex + 1).padStart(2, "0")}</span><strong>{response.question}</strong><p>{response.answer || "Javob berilmagan"}</p></article>)}</div></details>
       <div className="my-result-note"><ShieldCheck size={16} /><span>Javoblaringizni psixologingiz siz bilan suhbatda ko‘rib chiqadi. Bu testda ball yoki avtomatik tashxis berilmaydi.</span></div>
     </article>)}</div> : <EmptyMessage icon={<Clock3 size={23} />} title="Hali topshirilgan test yo‘q" text="Testni topshirganingizdan so‘ng, sanasi va javoblaringiz bu yerda ko‘rinadi." />}
   </div>;
+}
+
+function ReflectionPanel({ reflection, consent, audience }) {
+  if (!consent) return audience === "psychologist" ? <p className="reflection-muted">AI tahliliga rozilik berilmagan; sharh yaratilmagan.</p> : null;
+  if (!reflection) return <p className="reflection-muted">AI sharhi tayyor bo‘lmadi. Javoblaringiz saqlangan va psixologingizga ko‘rinadi.</p>;
+  const followUp = {
+    routine: "Rejali suhbatda muhokama qilishingiz mumkin.",
+    check_in: "Bu mavzuni yaqin fursatda psixolog bilan ko‘rib chiqish foydali bo‘lishi mumkin.",
+    urgent: "Javoblarda hozirgi xavfsizlikka oid xavotir bo‘lishi mumkin. Agar ayni damda o‘zingiz yoki boshqa birov xavf ostida deb o‘ylasangiz, ishonchli kishiga darhol ayting va mahalliy shoshilinch yordamga murojaat qiling."
+  }[reflection.followUp] || "Rejali suhbatda muhokama qilishingiz mumkin.";
+  return <section className="reflection-panel" aria-label="AI mulohazasi"><div className="reflection-title"><Sparkles size={17} /><h3>AI mulohazasi</h3></div><p className="reflection-description">{reflection.description}</p>{Array.isArray(reflection.observations) && reflection.observations.length > 0 && <ul>{reflection.observations.map((item, index) => <li key={index}>{item}</li>)}</ul>}{Array.isArray(reflection.conversationPrompts) && reflection.conversationPrompts.length > 0 && <div className="reflection-prompts"><strong>Suhbat uchun savollar</strong><ul>{reflection.conversationPrompts.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}<p className="reflection-followup"><strong>Keyingi qadam:</strong> {followUp}</p><small>Bu sharh faqat ushbu testdagi javoblarga asoslangan, taxminiy mulohaza. U tashxis yoki mutaxassis xulosasining o‘rnini bosmaydi.</small></section>;
 }
 
 function SettingsPage({ user, draft, setDraft, onSave, busy }) {

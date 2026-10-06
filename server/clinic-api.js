@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { randomBytes } from "node:crypto";
 import { pool } from "./db.js";
 import { cleanString, requireAdmin, requireTestAuthor, requireUser } from "./auth.js";
-import { generateQuestions } from "./ai.js";
+import { analyzeTestAnswers, generateQuestions } from "./ai.js";
 
 const router = express.Router();
 const aiLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
@@ -54,7 +54,8 @@ router.get("/overview", async (req, res, next) => {
 router.get("/my/results", async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT a.id, a.created_at, q.id AS quiz_id, q.title AS quiz_title,
+      `SELECT a.id, a.created_at, a.ai_consent, a.ai_reflection, a.ai_model, a.ai_generated_at,
+              q.id AS quiz_id, q.title AS quiz_title,
               COALESCE(g.name, 'Guruh') AS group_name, owner.username AS psychologist,
               COALESCE(response_items.items, '[]'::jsonb) AS responses
        FROM attempts a
@@ -288,7 +289,8 @@ router.get("/quizzes/:id/results", async (req, res, next) => {
     const [questions, attempts] = await Promise.all([
       pool.query("SELECT id, position, prompt, question_type AS type, options FROM quiz_questions WHERE quiz_id = $1 ORDER BY position", [quiz.id]),
       pool.query(
-        `SELECT a.id, a.answers, a.created_at, u.id AS user_id, u.username, u.first_name, u.last_name, u.avatar, u.gender
+        `SELECT a.id, a.answers, a.ai_consent, a.ai_reflection, a.ai_model, a.ai_generated_at,
+                a.created_at, u.id AS user_id, u.username, u.first_name, u.last_name, u.avatar, u.gender
          FROM attempts a JOIN users u ON u.id = a.user_id
          WHERE a.quiz_id = $1 AND a.is_practice = FALSE ORDER BY a.created_at DESC LIMIT 500`,
         [quiz.id]
@@ -312,12 +314,12 @@ router.get("/quizzes/:id", async (req, res, next) => {
 
 router.post("/quizzes/:id/attempts", async (req, res, next) => {
   const submitted = Array.isArray(req.body?.answers) ? req.body.answers : [];
-  const client = await pool.connect();
   try {
     const quiz = await accessibleQuiz(req.user, req.params.id);
     if (!quiz) return res.status(404).json({ error: "Test topilmadi yoki bu guruhga ruxsatingiz yo‘q." });
     const isPractice = quiz.owner_id === req.user.id && ["admin", "creator"].includes(req.user.role);
-    const questions = await client.query(
+    const aiConsent = req.body?.aiConsent === true;
+    const questions = await pool.query(
       "SELECT id, prompt, question_type, options FROM quiz_questions WHERE quiz_id = $1 ORDER BY position",
       [quiz.id]
     );
@@ -342,15 +344,29 @@ router.post("/quizzes/:id/attempts", async (req, res, next) => {
         }
       }
     }
-    const result = await client.query(
-      `INSERT INTO attempts (quiz_id, user_id, score, total_scoreable, is_practice, answers)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-       RETURNING id, is_practice, created_at`,
-      [quiz.id, req.user.id, 0, 0, isPractice, JSON.stringify(answerRecords)]
+    const saved = await pool.query(
+      `INSERT INTO attempts (quiz_id, user_id, score, total_scoreable, is_practice, answers, ai_consent)
+       VALUES ($1, $2, 0, 0, $3, $4::jsonb, $5)
+       RETURNING id, is_practice, created_at, ai_consent, ai_reflection, ai_model, ai_generated_at`,
+      [quiz.id, req.user.id, isPractice, JSON.stringify(answerRecords), aiConsent]
     );
-    res.status(201).json({ attempt: result.rows[0], answers: answerRecords });
+    let attempt = saved.rows[0];
+    if (aiConsent) {
+      const generated = await analyzeTestAnswers(questions.rows, answerRecords, req.user.language);
+      if (generated.reflection) {
+        try {
+          const updated = await pool.query(
+            `UPDATE attempts SET ai_reflection = $2::jsonb, ai_model = $3, ai_generated_at = NOW()
+             WHERE id = $1 AND user_id = $4
+             RETURNING id, is_practice, created_at, ai_consent, ai_reflection, ai_model, ai_generated_at`,
+            [attempt.id, JSON.stringify(generated.reflection), generated.model, req.user.id]
+          );
+          attempt = updated.rows[0] || attempt;
+        } catch (saveError) { console.error("AI reflection could not be saved", saveError); }
+      }
+    }
+    res.status(201).json({ attempt, answers: answerRecords, aiProvider: aiConsent ? (attempt.ai_reflection ? "ai" : "offline") : "not_requested" });
   } catch (error) { next(error); }
-  finally { client.release(); }
 });
 
 router.post("/ai/questions", requireTestAuthor, aiLimiter, async (req, res, next) => {

@@ -681,3 +681,16 @@ textarea { resize: vertical; }
   .my-result-heading time { grid-column: 2; font-size: 10px; }
   .my-result-title h2 { font-size: 14px; }
 }
+ .ai-consent { display:flex; gap:12px; align-items:flex-start; margin:20px 0; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--surface-soft); cursor:pointer; }
+.ai-consent input { flex:none; margin-top:3px; }
+.ai-consent span { display:grid; gap:5px; }
+.ai-consent small,.reflection-panel small { color:var(--muted); line-height:1.55; }
+.reflection-panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:16px; background:var(--surface-soft); }
+.reflection-title { display:flex; align-items:center; gap:8px; color:var(--green-dark); }
+.reflection-title h3 { margin:0; font-size:1rem; }
+.reflection-description { margin:12px 0; line-height:1.65; }
+.reflection-panel ul { padding-left:22px; line-height:1.65; }
+.reflection-prompts { padding:12px; border-radius:12px; background:var(--surface); }
+.reflection-followup { padding:10px 12px; border-left:3px solid var(--sage); background:var(--surface); line-height:1.55; }
+.reflection-muted { color:var(--muted); font-size:.9rem; }
+@media(max-width:640px) { .ai-consent,.reflection-panel { padding:13px; } }
