@@ -68,7 +68,7 @@ router.get("/my/results", async (req, res, next) => {
          JOIN quiz_questions qq ON qq.id::text = answer_row.value->>'questionId'
          WHERE qq.quiz_id = q.id
        ) response_items ON TRUE
-       WHERE a.user_id = $1 AND a.is_practice = FALSE
+       WHERE a.user_id = $1
        ORDER BY a.created_at DESC LIMIT 100`,
       [req.user.id]
     );
