@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS quiz_questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
     position INTEGER NOT NULL CHECK (position >= 0),
-    question_type VARCHAR(16) NOT NULL CHECK (question_type IN ('multiple', 'text', 'scale')),
+    question_type VARCHAR(16) NOT NULL CHECK (question_type IN ('multiple', 'text', 'scale', 'yes_no')),
     prompt VARCHAR(600) NOT NULL,
     options JSONB NOT NULL DEFAULT '[]'::jsonb,
     correct_option_index INTEGER,
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS quiz_questions (
 );
 
 ALTER TABLE quiz_questions DROP CONSTRAINT IF EXISTS quiz_questions_question_type_check;
-ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_question_type_check CHECK (question_type IN ('multiple', 'text', 'scale'));
+ALTER TABLE quiz_questions ADD CONSTRAINT quiz_questions_question_type_check CHECK (question_type IN ('multiple', 'text', 'scale', 'yes_no'));
 
 CREATE TABLE IF NOT EXISTS attempts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

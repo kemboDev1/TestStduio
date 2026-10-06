@@ -40,16 +40,16 @@ function validateQuiz(value, count, topic) {
   const questions = value.questions.map((item, index) => {
     const prompt = String(item.prompt || "").trim().slice(0, 600);
     const type = item.type;
-    if (!prompt || !["multiple", "text", "scale"].includes(type)) {
+    if (!prompt || !["multiple", "text", "scale", "yes_no"].includes(type)) {
       throw new Error(`AI qaytargan ${index + 1}-savol yaroqsiz.`);
     }
     if (type === "text") return { prompt, type, options: [], correctOptionIndex: null };
+    if (type === "yes_no") return { prompt, type, options: ["Ha", "Yo‘q"], correctOptionIndex: null };
     const options = Array.isArray(item.options) ? item.options.map(option => String(option).trim().slice(0, 300)) : [];
-    const correctOptionIndex = Number(item.correctOptionIndex);
-    if (options.length < 2 || options.length > 8 || (type === "multiple" && (!Number.isInteger(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex >= options.length))) {
+    if (options.length < 2 || options.length > 8) {
       throw new Error(`AI qaytargan ${index + 1}-savol yaroqsiz.`);
     }
-    return { prompt, type, options, correctOptionIndex: type === "scale" ? null : correctOptionIndex };
+    return { prompt, type, options, correctOptionIndex: null };
   });
   return { title, description, questions };
 }
@@ -80,7 +80,7 @@ export async function generateQuestions(topic, count) {
       messages: [
         {
           role: "system",
-          content: "You create clear, gentle self-reflection questionnaires in Uzbek for a psychologist's client groups. Return only JSON with this shape: {\"title\":string,\"description\":string,\"questions\":[{\"prompt\":string,\"type\":\"scale\",\"options\":string[],\"correctOptionIndex\":null} or {\"prompt\":string,\"type\":\"text\",\"options\":[],\"correctOptionIndex\":null} or {\"prompt\":string,\"type\":\"multiple\",\"options\":string[],\"correctOptionIndex\":number}]}. Prefer scale questions for frequency, intensity, or current experience; use a consistent 4–5 point scale with neutral, non-judgmental wording. Use open text for optional reflection. Use multiple choice only for short psychoeducation with one clearly verifiable answer. Avoid diagnosing, scoring mental health, promising treatment, or asking for trauma details. Never imply a response means a disorder. Return exactly the requested number of distinct questions, and keep the title and description concise."
+          content: "You create clear, gentle self-reflection questionnaires in Uzbek for a psychologist's client groups. Return only JSON with shape {\"title\":string,\"description\":string,\"questions\":[{\"prompt\":string,\"type\":\"yes_no\",\"options\":[\"Ha\",\"Yo‘q\"],\"correctOptionIndex\":null} or {\"prompt\":string,\"type\":\"scale\",\"options\":string[],\"correctOptionIndex\":null} or {\"prompt\":string,\"type\":\"text\",\"options\":[],\"correctOptionIndex\":null} or {\"prompt\":string,\"type\":\"multiple\",\"options\":string[],\"correctOptionIndex\":null}]}. Prefer yes/no for clear reflection prompts, scale questions for frequency/current experience, and open text for optional reflection. Multiple-choice options are subjective and have no correct answer. Never score, grade, label personality or diagnose. Avoid leading or shaming language, treatment promises, and requests for trauma details. Never imply any answer proves a disorder. Return exactly the requested number of distinct questions, with concise title and description."
         },
         {
           role: "user",

@@ -214,13 +214,14 @@ router.post("/quizzes", requireTestAuthor, async (req, res, next) => {
   const normalized = [];
   for (let index = 0; index < questions.length; index++) {
     const question = questions[index];
-    const type = ["text", "scale"].includes(question?.type) ? question.type : "multiple";
+    const type = ["text", "scale", "yes_no"].includes(question?.type) ? question.type : "multiple";
     const prompt = cleanString(question?.prompt, 600);
     if (!prompt) return res.status(400).json({ error: `${index + 1}-savolni to‘ldiring.` });
     if (type === "text") { normalized.push({ position: index, type, prompt, options: [], correct: null }); continue; }
+    if (type === "yes_no") { normalized.push({ position: index, type, prompt, options: ["Ha", "Yo‘q"], correct: null }); continue; }
     const options = Array.isArray(question.options) ? question.options.map(option => cleanString(option, 300)).filter(Boolean).slice(0, 8) : [];
-    const correct = type === "scale" ? null : Number(question.correctOptionIndex);
-    if (options.length < 2 || (type === "multiple" && (!Number.isInteger(correct) || correct < 0 || correct >= options.length))) {
+    const correct = null;
+    if (options.length < 2) {
       return res.status(400).json({ error: `${index + 1}-savol javob variantlarini tekshiring.` });
     }
     normalized.push({ position: index, type, prompt, options, correct });
@@ -263,7 +264,7 @@ router.get("/quizzes/:id/results", async (req, res, next) => {
     const [questions, attempts] = await Promise.all([
       pool.query("SELECT id, position, prompt, question_type AS type, options FROM quiz_questions WHERE quiz_id = $1 ORDER BY position", [quiz.id]),
       pool.query(
-        `SELECT a.id, a.score, a.total_scoreable, a.answers, a.created_at, u.id AS user_id, u.username, u.first_name, u.last_name, u.avatar, u.gender
+        `SELECT a.id, a.answers, a.created_at, u.id AS user_id, u.username, u.first_name, u.last_name, u.avatar, u.gender
          FROM attempts a JOIN users u ON u.id = a.user_id
          WHERE a.quiz_id = $1 AND a.is_practice = FALSE ORDER BY a.created_at DESC LIMIT 500`,
         [quiz.id]
@@ -277,12 +278,9 @@ router.get("/quizzes/:id", async (req, res, next) => {
   try {
     const quiz = await accessibleQuiz(req.user, req.params.id);
     if (!quiz) return res.status(404).json({ error: "Test topilmadi yoki bu guruhga ruxsatingiz yo‘q." });
-    const showAnswers = mayReview(req.user, quiz);
     const questions = await pool.query(
-      `SELECT id, position, question_type AS type, prompt, options,
-              CASE WHEN $2::boolean THEN correct_option_index ELSE NULL END AS correct_option_index
-       FROM quiz_questions WHERE quiz_id = $1 ORDER BY position`,
-      [quiz.id, showAnswers]
+      "SELECT id, position, question_type AS type, prompt, options FROM quiz_questions WHERE quiz_id = $1 ORDER BY position",
+      [quiz.id]
     );
     res.json({ quiz, questions: questions.rows });
   } catch (error) { next(error); }
@@ -296,12 +294,10 @@ router.post("/quizzes/:id/attempts", async (req, res, next) => {
     if (!quiz) return res.status(404).json({ error: "Test topilmadi yoki bu guruhga ruxsatingiz yo‘q." });
     const isPractice = quiz.owner_id === req.user.id && ["admin", "creator"].includes(req.user.role);
     const questions = await client.query(
-      "SELECT id, prompt, question_type, options, correct_option_index FROM quiz_questions WHERE quiz_id = $1 ORDER BY position",
+      "SELECT id, prompt, question_type, options FROM quiz_questions WHERE quiz_id = $1 ORDER BY position",
       [quiz.id]
     );
     const answersById = new Map(submitted.map(answer => [String(answer.questionId), answer]));
-    let score = 0;
-    let total = 0;
     const answerRecords = [];
     for (const question of questions.rows) {
       const answer = answersById.get(String(question.id));
@@ -318,18 +314,15 @@ router.post("/quizzes/:id/attempts", async (req, res, next) => {
         if (question.question_type === "scale") {
           answerRecords.push({ questionId: question.id, type: "scale", answer: optionText, selectedOptionIndex: selected });
         } else {
-          total++;
-          const correct = selected === question.correct_option_index;
-          if (correct) score++;
-          answerRecords.push({ questionId: question.id, type: "multiple", answer: optionText, selectedOptionIndex: selected, correct });
+          answerRecords.push({ questionId: question.id, type: question.question_type, answer: optionText, selectedOptionIndex: selected });
         }
       }
     }
     const result = await client.query(
       `INSERT INTO attempts (quiz_id, user_id, score, total_scoreable, is_practice, answers)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-       RETURNING id, score, total_scoreable, is_practice, created_at`,
-      [quiz.id, req.user.id, score, total, isPractice, JSON.stringify(answerRecords)]
+       RETURNING id, is_practice, created_at`,
+      [quiz.id, req.user.id, 0, 0, isPractice, JSON.stringify(answerRecords)]
     );
     res.status(201).json({ attempt: result.rows[0], answers: answerRecords });
   } catch (error) { next(error); }
