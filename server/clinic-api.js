@@ -51,6 +51,31 @@ router.get("/overview", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post("/my/results/:id/ai-reflection", async (req, res, next) => {
+  if (req.body?.consent !== true) return res.status(400).json({ error: "AI tahlili uchun alohida rozilik kerak." });
+  try {
+    const savedAttempt = await pool.query(
+      "SELECT id, quiz_id, answers FROM attempts WHERE id = $1 AND user_id = $2",
+      [req.params.id, req.user.id]
+    );
+    if (!savedAttempt.rowCount) return res.status(404).json({ error: "Test natijasi topilmadi." });
+    await pool.query("UPDATE attempts SET ai_consent = TRUE WHERE id = $1 AND user_id = $2", [req.params.id, req.user.id]);
+    const questions = await pool.query(
+      "SELECT id, prompt FROM quiz_questions WHERE quiz_id = $1 ORDER BY position",
+      [savedAttempt.rows[0].quiz_id]
+    );
+    const generated = await analyzeTestAnswers(questions.rows, savedAttempt.rows[0].answers, req.user.language);
+    if (!generated.reflection) return res.status(503).json({ error: "AI tavsifini yaratib bo‘lmadi. Javoblar saqlangan; keyinroq qayta urinib ko‘ring." });
+    const updated = await pool.query(
+      `UPDATE attempts SET ai_reflection = $2::jsonb, ai_model = $3, ai_generated_at = NOW()
+       WHERE id = $1 AND user_id = $4
+       RETURNING id, ai_consent, ai_reflection, ai_model, ai_generated_at`,
+      [req.params.id, JSON.stringify(generated.reflection), generated.model, req.user.id]
+    );
+    res.json({ attempt: updated.rows[0] });
+  } catch (error) { next(error); }
+});
+
 router.get("/my/results", async (req, res, next) => {
   try {
     const result = await pool.query(

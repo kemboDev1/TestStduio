@@ -33,6 +33,7 @@ function App() {
   const [results, setResults] = useState(null);
   const [myResults, setMyResults] = useState([]);
   const [myResultsLoading, setMyResultsLoading] = useState(false);
+  const [reflectionBusyId, setReflectionBusyId] = useState(null);
   const [answers, setAnswers] = useState({});
   const [aiConsent, setAiConsent] = useState(false);
   const [attempt, setAttempt] = useState(null);
@@ -61,6 +62,18 @@ function App() {
     setNotice(message);
     window.clearTimeout(announce.timer);
     announce.timer = window.setTimeout(() => setNotice(""), 5000);
+  }
+
+  async function generateReflection(attemptId) {
+    const consent = await askToConfirm({ title: "AI tavsifi yaratilsinmi?", message: "Rozilik bersangiz, faqat ushbu testdagi savol va javoblar AI tahliliga yuboriladi. Ism va akkaunt ma’lumotlari yuborilmaydi. AI tavsifi tashxis emas.", confirmLabel: "Roziman, tavsif yaratish" });
+    if (!consent) return;
+    setReflectionBusyId(attemptId);
+    try {
+      const { attempt } = await api(`/my/results/${attemptId}/ai-reflection`, { method: "POST", body: jsonBody({ consent: true }) });
+      setMyResults(current => current.map(item => item.id === attemptId ? { ...item, ...attempt } : item));
+      announce(attempt.ai_reflection ? "AI tavsifi tayyor." : "AI tavsifi yaratilmadi. Javoblar saqlangan; AI xizmati sozlamasini tekshiring.");
+    } catch (error) { announce(error.message); }
+    finally { setReflectionBusyId(null); }
   }
 
   function askToConfirm({ title, message, confirmLabel = "Tasdiqlash", danger = false }) {
@@ -382,7 +395,7 @@ function App() {
           {page === "groups" && <GroupsPage user={user} groups={groups} selectedGroup={selectedGroup} selectedGroupId={selectedGroupId} setSelectedGroupId={setSelectedGroupId} members={groupMembers} groupForm={groupForm} setGroupForm={setGroupForm} onCreate={createGroup} onSave={saveGroup} memberForm={memberForm} setMemberForm={setMemberForm} onAddMember={addMember} onRemoveMember={removeMember} onJoin={joinGroup} onCopy={copyInvite} busy={busy} />}
           {page === "tests" && <TestsPage user={user} quizzes={visibleQuizzes} searchTerm={searchTerm} setSearchTerm={setSearchTerm} onCreate={startBuilder} onOpen={openQuiz} onResults={openResults} onDelete={moderate} busy={busy} />}
           {page === "members" && <MembersPage users={adminUsers} groups={groups} onManageGroups={() => setPage("groups")} onModerate={moderate} />}
-          {page === "my-results" && <MyResultsPage results={myResults} loading={myResultsLoading} />}
+          {page === "my-results" && <MyResultsPage results={myResults} loading={myResultsLoading} onGenerate={generateReflection} reflectionBusyId={reflectionBusyId} />}
           {page === "builder" && <BuilderPage user={user} draft={draft} setDraft={setDraft} groups={authorGroups} aiTopic={aiTopic} setAiTopic={setAiTopic} aiCount={aiCount} setAiCount={setAiCount} aiProvider={aiProvider} busy={busy} onAi={generateWithAi} onPublish={publishQuiz} onBack={() => setPage("tests")} onManageGroups={() => setPage("groups")} updateQuestion={updateQuestion} />}
           {page === "play" && selectedQuiz && <PlayPage data={selectedQuiz} answers={answers} setAnswers={setAnswers} aiConsent={aiConsent} setAiConsent={setAiConsent} attempt={attempt} busy={busy} onSubmit={submitAttempt} onBack={() => setPage("tests")} />}
           {page === "results" && results && <ResultsPage data={results} onBack={() => setPage("tests")} />}
@@ -577,24 +590,24 @@ function ResultsPage({ data, onBack }) {
   </div>;
 }
 
-function MyResultsPage({ results, loading }) {
+function MyResultsPage({ results, loading, onGenerate, reflectionBusyId }) {
   return <div className="page-stack"><PageHeading eyebrow="SHAXSIY KABINET" title="Natijalar" subtitle="Yechgan testlaringiz, topshirgan sanangiz va javoblaringiz shu yerda saqlanadi. Bu testlarda ball qo‘yilmaydi." />
     {loading ? <div className="surface-card results-loading" role="status"><span className="live-dot" />Natijalar yuklanmoqda…</div> : results.length ? <div className="my-results-list">{results.map((result, index) => <article className="surface-card my-result-card" key={result.id}>
       <div className="my-result-heading"><span className={`test-art art-${index % 4}`}><FileText size={20} /></span><div className="my-result-title"><span className="eyebrow">{result.group_name || "GURUH"}</span><h2>{result.quiz_title}</h2><p>Psixolog: {result.psychologist}</p></div><time dateTime={result.created_at}><Clock3 size={14} />{dateTimeLabel(result.created_at)}</time></div>
-      <ReflectionPanel reflection={result.ai_reflection} consent={result.ai_consent} audience="participant" /><details className="my-result-details"><summary>Javoblarimni ko‘rish<ChevronRight size={16} /></summary><div className="response-answers">{result.responses.map((response, responseIndex) => <article key={`${result.id}-${responseIndex}`}><span>SAVOL {String(responseIndex + 1).padStart(2, "0")}</span><strong>{response.question}</strong><p>{response.answer || "Javob berilmagan"}</p></article>)}</div></details>
-      <div className="my-result-note"><ShieldCheck size={16} /><span>Javoblaringizni psixologingiz siz bilan suhbatda ko‘rib chiqadi. Bu testda ball yoki avtomatik tashxis berilmaydi.</span></div>
+      <ReflectionPanel reflection={result.ai_reflection} consent={result.ai_consent} audience="participant" attemptId={result.id} onGenerate={onGenerate} busy={reflectionBusyId === result.id} /><details className="my-result-details"><summary>Javoblarimni ko‘rish<ChevronRight size={16} /></summary><div className="response-answers">{result.responses.map((response, responseIndex) => <article key={`${result.id}-${responseIndex}`}><span>SAVOL {String(responseIndex + 1).padStart(2, "0")}</span><strong>{response.question}</strong><p>{response.answer || "Javob berilmagan"}</p></article>)}</div></details>
+      <div className="my-result-note"><ShieldCheck size={16} /><span>Bu testda ball berilmaydi. AI tavsifi javoblaringizdan kelib chiqadigan ehtimoliy xususiyatlarni ko‘rsatadi — tashxis emas.</span></div>
     </article>)}</div> : <EmptyMessage icon={<Clock3 size={23} />} title="Hali topshirilgan test yo‘q" text="Testni topshirganingizdan so‘ng, sanasi va javoblaringiz bu yerda ko‘rinadi." />}
   </div>;
 }
 
-function ReflectionPanel({ reflection, consent, audience }) {
-  if (!consent) return audience === "psychologist" ? <p className="reflection-muted">AI tahliliga rozilik berilmagan; sharh yaratilmagan.</p> : null;
-  if (!reflection) return <p className="reflection-muted">AI sharhi tayyor bo‘lmadi. Javoblaringiz saqlangan va psixologingizga ko‘rinadi.</p>;
+function ReflectionPanel({ reflection, consent, audience, attemptId, onGenerate, busy }) {
+  if (!consent && audience === "psychologist") return <p className="reflection-muted">Foydalanuvchi AI tahliliga rozilik bermagan; javoblarini o‘zingiz ko‘rib chiqing.</p>;
+  if (!reflection) return <section className="reflection-panel reflection-empty"><div className="reflection-title"><Sparkles size={17} /><h3>AI tavsifi hali yaratilmagan</h3></div><p>Javoblaringizdan kelib chiqib, ehtimoliy fe’l-atvor va kundalik tutum haqida alohida tavsif oling. Bu tashxis emas.</p>{audience === "participant" && <button type="button" className="button button-primary" disabled={busy} onClick={() => onGenerate(attemptId)}>{busy ? "Tavsif tayyorlanmoqda…" : consent ? "AI tavsifini qayta yaratish" : "AI tavsifini olish"}</button>}<small>{audience === "participant" ? "Bosganda rozilik so‘raladi; faqat shu testning savollari va javoblari yuboriladi." : "Tavsif faqat foydalanuvchi rozilik berganda yaratiladi."}</small></section>;
   const followUp = {
-    routine: "Rejali suhbatda muhokama qilishingiz mumkin.",
+    routine: "Javoblaringizda hozircha alohida xavfsizlik signali ko‘rinmadi. Tavsifni o‘zingizga mosligi bo‘yicha baholang.",
     check_in: "Bu mavzuni yaqin fursatda psixolog bilan ko‘rib chiqish foydali bo‘lishi mumkin.",
     urgent: "Javoblarda hozirgi xavfsizlikka oid xavotir bo‘lishi mumkin. Agar ayni damda o‘zingiz yoki boshqa birov xavf ostida deb o‘ylasangiz, ishonchli kishiga darhol ayting va mahalliy shoshilinch yordamga murojaat qiling."
-  }[reflection.followUp] || "Rejali suhbatda muhokama qilishingiz mumkin.";
+  }[reflection.followUp] || "Javoblaringizda hozircha alohida xavfsizlik signali ko‘rinmadi. Tavsifni o‘zingizga mosligi bo‘yicha baholang.";
   return <section className="reflection-panel" aria-label="AI mulohazasi"><div className="reflection-title"><Sparkles size={17} /><h3>AI mulohazasi</h3></div><p className="reflection-description">{reflection.description}</p>{Array.isArray(reflection.observations) && reflection.observations.length > 0 && <ul>{reflection.observations.map((item, index) => <li key={index}>{item}</li>)}</ul>}{Array.isArray(reflection.conversationPrompts) && reflection.conversationPrompts.length > 0 && <div className="reflection-prompts"><strong>Suhbat uchun savollar</strong><ul>{reflection.conversationPrompts.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}<p className="reflection-followup"><strong>Keyingi qadam:</strong> {followUp}</p><small>Bu sharh faqat ushbu testdagi javoblarga asoslangan, taxminiy mulohaza. U tashxis yoki mutaxassis xulosasining o‘rnini bosmaydi.</small></section>;
 }
 

@@ -1,4 +1,11 @@
 const phrases = {
+  "AI tavsifi hali yaratilmagan": ["AI reflection is not available yet", "Комментарий ИИ пока не создан"],
+  "Javoblaringizdan kelib chiqib, ehtimoliy fe’l-atvor va kundalik tutum haqida alohida tavsif oling. Bu tashxis emas.": ["Get a personal reflection on possible traits and everyday patterns based on your answers. This is not a diagnosis.", "Получите личное описание возможных черт и повседневных привычек на основе ответов. Это не диагноз."],
+  "AI tavsifini olish": ["Get AI reflection", "Получить комментарий ИИ"],
+  "AI tavsifini qayta yaratish": ["Regenerate AI reflection", "Создать комментарий ИИ заново"],
+  "Tavsif tayyorlanmoqda…": ["Preparing reflection…", "Готовим комментарий…"],
+  "Bosganda rozilik so‘raladi; faqat shu testning savollari va javoblari yuboriladi.": ["You will be asked for consent; only this test's questions and answers are sent.", "Перед отправкой будет запрошено согласие; отправляются только вопросы и ответы этого теста."],
+  "Foydalanuvchi AI tahliliga rozilik bermagan; javoblarini o‘zingiz ko‘rib chiqing.": ["The participant did not consent to AI analysis; review their answers yourself.", "Участник не дал согласие на анализ ИИ; просмотрите его ответы самостоятельно."],
   "AI mulohazasini olishga roziman (ixtiyoriy)": ["I agree to receive an AI reflection (optional)", "Согласен получить комментарий ИИ (необязательно)"],
   "Belgilasangiz, faqat savol va javoblaringiz AI xizmatiga tahlil uchun yuboriladi. Ism va akkaunt ma’lumotlari yuborilmaydi. Belgilamasangiz, javoblar saqlanib, faqat psixologingizga ko‘rinadi. AI sharhi tashxis emas.": ["If selected, only your questions and answers are sent to the AI service for analysis. Your name and account details are not sent. If not selected, answers are saved for your psychologist only. The AI reflection is not a diagnosis.", "При выборе в ИИ отправляются только вопросы и ответы. Имя и данные аккаунта не передаются. Без согласия ответы сохраняются только для психолога. Комментарий ИИ не является диагнозом."],
   "AI mulohazasi": ["AI reflection", "Комментарий ИИ"],
